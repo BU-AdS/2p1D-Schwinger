@@ -426,11 +426,6 @@ int main(int argc, char **argv) {
 	fprintf(fp, "\n");
 	fclose(fp);
 
-	name = "rectWL";
-	constructName(name, p);
-	name += ".dat";
-	sprintf(fname, "%s", name.c_str());
-	fp = fopen(fname, "a");
 	for(int sizex=2 ; sizex < L/2; sizex++)
 	  for(int sizey=sizex-1 ; (sizey < L/2 && sizey <= sizex+1) ; sizey++) {
 	    name = "rectWL";

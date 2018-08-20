@@ -91,7 +91,7 @@ void writeGaugeLattice(Complex gauge[L][L][LZ][D], string name);
 void readGaugeLattice(Complex gauge[L][L][LZ][D], string name);
 double measPlaq(Complex gauge[L][L][LZ][D], int z);
 void gaussStart(Complex (&gauge)[L][L][LZ][D], param_t p);
-void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWsq)[L][L][LZ]);
+void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWc)[L][L][LZ]);
 void polyakovLoops(Complex  gauge[L][L][LZ][D], Complex polyakov[L/2][LZ]);
 double getTopCharge(Complex gauge[L][L][LZ][D], param_t p, int z);
 void smearLink(Complex (&gaugeSmeared)[L][L][2], Complex gauge[L][L][2], param_t p);
@@ -155,16 +155,19 @@ template<typename T> inline void zeroField2D(T psi[L][L])
 
 void printParams(param_t p) {
   cout << endl;
-  cout << "Size = "<< L << endl;
-  cout << "Beta = "<< p.beta << endl;
-  cout << "BetaZ = "<< p.betaz << endl;
-  cout << "Quenching = " << (p.quenched == true ? "True" : "False") << endl;
-  if (!p.quenched) cout << "Mass = "<< p.m << endl;
-  cout << "Therm Sweeps = " << p.therm << endl; 
-  cout << "Data Points = " << p.iterHMC - p.therm << endl;
-  cout << "Time Step = " << p.dt << endl;
-  cout << "Trajectory Steps " << p.nstep << endl;
-  cout << "Trajectory Length = " << p.dt*p.nstep << endl;
+  cout << "Physics:  Size = "<< L << endl;
+  cout << "          Beta = "<< p.beta << endl;
+  cout << "          BetaZ = "<< p.betaz << endl;
+  cout << "          Quenching = " << (p.quenched == true ? "True" : "False") << endl;
+  if (!p.quenched) cout << "         Mass = "<< p.m << endl;
+  cout << "HMC:      Therm Sweeps = " << p.therm << endl; 
+  cout << "          Data Points = " << p.iterHMC - p.therm << endl;
+  cout << "          Time Step = " << p.dt << endl;
+  cout << "          Trajectory Steps " << p.nstep << endl;
+  cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
+  cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
+  cout << "Smearing: APE iter = " << p.smearIter << endl;
+  cout << "          APE alpha = " << p.alpha << endl;
 }
 
 void constructName(string &name, param_t p) {
@@ -268,13 +271,13 @@ int main(int argc, char **argv) {
   double area[L], sigma[L/2][LZ];
   Complex polyakov[L/2][LZ];
   Complex gauge[L][L][LZ][D];  
-  Complex avWsq[L][L][LZ];
+  Complex avWc[L][L][LZ];
   for(int a=0; a<LZ; a++) 
     for(int i=0; i<L/2; i++) {
       sigma[i][a] = 0.0;
       polyakov[i][a] = 0.0;
       for(int j=0; j<L/2; j++) {
-	avWsq[i][j][a] = Complex(0.0,0.0);
+	avWc[i][j][a] = Complex(0.0,0.0);
       }
     }
   
@@ -384,8 +387,8 @@ int main(int argc, char **argv) {
 	  for(int i=0; i<L/2; i++)  polyakov[i][z] = 0.0;	
 	polyakovLoops(gauge, polyakov);
       
-	zeroField(avWsq);
-	areaLaw(gauge, avWsq);
+	zeroField(avWc);
+	areaLaw(gauge, avWc);
       
 	for(int z=0; z<LZ; z++) {
 
@@ -402,8 +405,8 @@ int main(int argc, char **argv) {
 	  // Creutz Ratios	  
 	  for(int size=1; size<L/2; size++) {      
 	    sigma[size][z] =
-	   -log( abs( ( real(avWsq[size][size][z])  *real(avWsq[size-1][size-1][z]) )/ 
-		      ( real(avWsq[size-1][size][z])*real(avWsq[size][size-1][z]  ))));
+	   -log( abs( ( real(avWc[size][size][z])  *real(avWc[size-1][size-1][z]) )/ 
+		      ( real(avWc[size-1][size][z])*real(avWc[size][size-1][z]  ))));
 	  }
 	  name = "creutz_Lz" + to_string(z);
 	  constructName(name, p);
@@ -414,7 +417,19 @@ int main(int argc, char **argv) {
 	  for(int size=2 ; size < L/2; size++) fprintf(fp, "%.16e ", sigma[size][z] );
 	  fprintf(fp, "\n");
 	  fclose(fp);
-	
+
+	  for(int sizex=2 ; sizex < L/2; sizex++)
+	    for(int sizey=sizex-1 ; (sizey < L/2 && sizey <= sizex+1) ; sizey++) {
+	      name = "rectWL_Lz" + to_string(z);
+	      name += "_" + to_string(sizex) + "_" + to_string(sizey);
+	      constructName(name, p);
+	      name += ".dat";
+	      sprintf(fname, "%s", name.c_str());
+	      fp = fopen(fname, "a");
+	      fprintf(fp, "%d %.16e %.16e\n", iter+1, real(avWc[sizex][sizey][z]), imag(avWc[sizex][sizey][z]));	    
+	      fclose(fp);
+	    }
+	  
 	  // Polyakov Loops
 	  name = "polyakov_Lz" + to_string(z);
 	  constructName(name, p);
@@ -882,7 +897,7 @@ void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D], Complex (&gau
 //             exp[ -sigma (L-1)L] exp[-sigma L(L-1)]
 // ==================================================================
 
-void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWsq)[L][L][LZ]){
+void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWc)[L][L][LZ]){
 
   Complex w;
   int p1, p2, p3, p4;
@@ -921,7 +936,7 @@ void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWsq)[L][L][LZ]){
 	    
 	    //Move in -y from p2 to y
 	    for(int dy=Yrect-1; dy>=0; dy--)  w *= conj(gauge[x][ (y+dy)%L ][z][1]);
-	    avWsq[Xrect][Yrect][z] += w*denom;
+	    avWc[Xrect][Yrect][z] += w*denom;
 	  }
       }
     }
