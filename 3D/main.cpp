@@ -71,7 +71,8 @@ typedef struct{
   double betaz;
   double m;
   bool quenched;
-
+  bool lockedZ;
+  
   //Smearing
   double alpha;
   int smearIter;
@@ -159,6 +160,7 @@ void printParams(param_t p) {
   cout << "          Beta = "<< p.beta << endl;
   cout << "          BetaZ = "<< p.betaz << endl;
   cout << "          Quenching = " << (p.quenched == true ? "True" : "False") << endl;
+  cout << "          Z locked = " << (p.lockedZ == true ? "True" : "False") << endl;
   if (!p.quenched) cout << "         Mass = "<< p.m << endl;
   cout << "HMC:      Therm Sweeps = " << p.therm << endl; 
   cout << "          Data Points = " << p.iterHMC - p.therm << endl;
@@ -226,7 +228,8 @@ int main(int argc, char **argv) {
   p.nstep = 100;
   p.dt = 0.01;
   p.quenched = true;
-
+  p.lockedZ = false;
+ 
   p.maxIterCG = 1000;
   p.m = 0.032;
   p.eps = 1E-6;
@@ -546,6 +549,7 @@ void gaussStart(Complex (&gauge)[L][L][LZ][D], param_t p){
 	for(int mu=0; mu<D; mu++) {
 	  //gauge[x][y][z][mu] = polar(1.0,sqrt(1.0/p.beta)*rang());
 	  gauge[x][y][z][mu] = polar(1.0, TWO_PI*drand48() );
+	  if(p.lockedZ && mu == 2) gauge[x][y][z][mu] = 1.0;
 	}  
   return;
 }
@@ -748,6 +752,9 @@ double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L]
 
 //Check... OK!
 void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Complex chi[L][L][LZ], param_t p) {
+
+  int dim = D;
+  if(p.lockedZ) dim -= 1;
   
   int i, step;
   double fV[L][L][LZ][D];
@@ -759,7 +766,7 @@ void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Compl
       for(int x=0; x<L; x++)
 	for(int y=0; y<L; y++)
 	  for(int z=0; z<LZ; z++) 
-	    for(int mu=0; mu<D; mu++) 
+	    for(int mu=0; mu<dim; mu++) 
 	      gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * p.dt/2.0);
 
     } else {
@@ -767,7 +774,7 @@ void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Compl
       for(int x=0; x<L; x++)
 	for(int y=0; y<L; y++)
 	  for(int z=0; z<LZ; z++)
-	    for(int mu=0; mu<D; mu++) 
+	    for(int mu=0; mu<dim; mu++) 
 	      gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * p.dt);
       
     }
@@ -778,7 +785,7 @@ void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Compl
     for(int x=0; x<L; x++)
       for(int y=0; y<L; y++)
 	for(int z=0; z<LZ; z++)
-	  for(int mu=0; mu<D; mu++)
+	  for(int mu=0; mu<dim; mu++)
 	    mom[x][y][z][mu] += (fV[x][y][z][mu])*p.dt;
     
     
@@ -788,7 +795,7 @@ void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Compl
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
       for(int z=0; z<LZ; z++)
-	for(int mu=0; mu<D; mu++){
+	for(int mu=0; mu<dim; mu++){
 	  gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * p.dt/2.0);	  
 	}
 }
@@ -865,8 +872,8 @@ void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D], Complex (&gau
 	
 	//Z dir
 	//------
-
-	if(z != LZ-1) {
+	// Only update the z links if not locked
+	if(z != LZ-1 && !p.lockedZ) {
 	  //z, x, -z, -x
 	  plaq = gauge[x][y][z][2]*gauge[x][y][zp1][0]*conj(gauge[xp1][y][z][2])*conj(gauge[x][y][z][0]);
 	  fV[x][y][z][2] -= betaz*imag(plaq);
