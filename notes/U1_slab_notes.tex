@@ -1,0 +1,124 @@
+% ------------------------------------------------------------------
+\documentclass[12 pt]{article}
+\newcommand\ignore[1]{}
+\usepackage[left]{lineno}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{cancel}
+ \usepackage{graphicx}
+\usepackage{braket}
+\usepackage{authblk}
+\usepackage{caption,subcaption}
+\usepackage{comment}
+\usepackage{enumitem}
+\pagestyle{plain}
+\pagenumbering{arabic}
+\usepackage{color}
+\newcommand{\rcb}[1]{\textcolor{blue}{  #1 }}
+\newcommand{\rcbfoot}[1]{\textcolor{red}{**\footnote{\textcolor{blue}{ \sc COMMENT REMOVE LATER *** #1 ***}}}}
+\pdfpagewidth 8.5 in
+\pdfpageheight 11 in
+\setlength{\parindent}{0 mm}
+\setlength{\parskip}{10pt}
+\setlength{\abovedisplayskip}{0 pt}
+\setlength{\belowdisplayskip}{0 pt}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[margin = .75 in]{geometry}
+\usepackage[pdftex, pdfstartview={FitH}, pdfnewwindow=true, colorlinks=false, pdfpagemode=UseNone]{hyperref}
+
+% Laziness shortcuts
+
+\newcommand\dd{\partial}
+\newcommand{\nn}{\nonumber \\}
+\newcommand\be{\begin{equation}}
+\newcommand\ee{\end{equation}}
+\newcommand\bea{\begin{eqnarray}}
+\newcommand\eea{\end{eqnarray}}
+\newcommand{\<}{\langle}
+\renewcommand{\>}{\rangle}
+\newcommand\half{ \textstyle {\frac{1}{2}}}
+% ------------------------------------------------------------------
+\bibliographystyle{unsrt}
+
+% ------------------------------------------------------------------
+\begin{document}
+
+\begin{center}
+ \Large \bf 2D U(1) Gauge Slab Action
+\end{center}
+
+\section{Non-compact Gaussian Action}
+
+Here is the 2d $L^2$ action  with $L_s + 1$  slices: $s = 0, \pm 1, \cdots L_s/2$.
+%
+\be
+S =  \frac{1}{4} \sum_{x,s}   \sum_{\mu,\nu} F_{\mu \nu}(x,s) F_{\mu
+  \nu}(x,s)  + \frac{1}{2} \sum_{\mu,\nu} E_\mu(x,s) E_\mu(x,s)  
+\ee
+where 
+\be
+F_{\mu \nu}(x,s)  = \Delta_\mu \theta_\nu(x,s) - \Delta_\nu \theta_\mu(x,s) \nn
+ = ( \theta_\nu(x +\mu,s) - \theta_\nu(x,s) ) - ( \theta_\mu(x +\nu,s) - \theta_\mu(x,s) )
+\ee
+and 
+\be
+E_\mu(x,s) = \Delta_s \theta_\mu(x,s) = \theta_\mu(x,s+1)  -\theta_\mu(x,s) 
+\ee
+Therefore,
+\be
+S =  \frac{1}{2} \sum_{x,s}  \sum_{\mu <\nu} ( ( \theta_\nu(x +\mu,s)
+- \theta_\nu(x,s) ) - ( \theta_\mu(x +\nu,s) - \theta_\mu(x,s) ))^2
++ \frac{1}{2} \sum_{x,s} \sum^{L_s/2 -1}_{s= -L_s/2} (\theta_\mu(x,s+1)  -\theta_\mu(x,s) )^2
+\ee
+We can go to momentum space by a unitary transformation :
+\be
+\theta_\mu(x,s) =  \frac{1}{(2 \pi)^2}\int^\pi_{-\pi} d^2k   e^{i x k}\widetilde\theta_\mu(k,s) \quad 
+\mbox{and} \quad  \widetilde \theta_\mu(k,s) = \frac{1}{L}\sum_{x \in Z}  e^{-i x k} \theta_\mu(x,s) 
+\ee
+and 
+\be
+\Delta_\mu \theta_\nu(x,s)
+= \frac{1}{L}\sum_k(e^{ik_\mu} - 1)  e^{i x k} \widetilde
+\theta_\nu(k,s) 
+\ee
+
+or defining $ (e^{ik_\mu} - 1) =  i \hat k_\mu $ this  gives,
+\bea
+S &=&  \frac{1}{2} \sum_{k,s}\sum_{\mu <\nu} [ \hat k^*_\mu  \widetilde \theta^*_\nu(k,s) -
+\hat k^*_\nu   \widetilde \theta^*_\mu(k,s) ]  [ \hat k_\mu  \widetilde \theta_\nu(k,s) -
+\hat k_\nu   \widetilde \theta_\mu(k,s) ]  \nn
+&+& \frac{1}{2} \sum^{L_s/2 -1}_{s= -L_s/2}  \sum_{k,\mu} (\widetilde\theta^*_\mu(k,s+1) -\widetilde\theta^*_\mu(k,s))(\widetilde\theta_\mu(k,s+1)  -\widetilde\theta_\mu(k,s) )
+\eea
+(Note in 2D  $\mu = x$, and $\nu = y$ so there is no sum at all!) 
+The quadratic form is 
+\be
+S = \frac{1}{2} \widetilde \theta^*_\mu(k,s)
+M_{\mu\nu}(k)\theta_\nu(k,s)  - \frac{1}{2} [\widetilde
+\theta^*_\mu(k,s) \theta_\mu(k,s+1) + \widetilde
+\theta^*_\mu(k,s+1) \theta_\mu(k,s)]
+\ee
+Since it is of course diagonal in k, the sum over $k$ implicit. 
+
+We now integrate all {\bf but} the zero-th central slice. Formally separating
+calling the thetas on the midels slide $\widetilde \theta(k,0) \equiv
+\widetilde \theta_\mu(0) $ we don the 
+ integral for over the others  $\Theta_{\mu s}(k) = \widetilde \theta_\mu(k,s \ne 0)$'s; to get the effective action in
+$k-space$:
+%
+\bea
+&& e^{\textstyle - S_{eff}} \nn
+ &=& e^{\textstyle -\frac{1}{2} \widetilde \theta^*_\mu(k,0)
+M_{\mu\nu}(k) \widetilde \theta_\nu(k,0) }  \nn &\times &\int 
+d^2\Theta_{\mu s}(k) 
+e^{  \textstyle -\frac{1}{2}  \Theta^\dag_{\mu s}(k) G^{ss'}_{\mu\nu} (k) 
+  \Theta_{s'\nu}(k)  + \frac{1}{2}[\widetilde \theta^*_\mu(k,0) (
+  \Theta_{1,\mu}(k) + \Theta_{-1,\mu}(k))  +(\Theta^\dag_{1,\mu} + \Theta^\dag_{-1,\mu} )\widetilde \theta_\mu(k,0)]}\nn
+&=& e^{\textstyle -\frac{1}{2} \widetilde \theta^*_\mu(k,0)
+M_{\mu\nu}(k) \widetilde \theta_\nu(k,0)  +  \frac{1}{2} \widetilde
+\theta^*_\mu(k,0) ([1/G(k)]^{11}_{\mu\nu} (k)  +[1/G(k)]^{-1-1}_{\mu\nu} (k)]\widetilde \theta_\nu(k,0) } 
+\eea
+%
+\end{document}
