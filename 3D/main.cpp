@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
   p.nstep = 100;
   p.dt = 0.01;
   p.quenched = true;
-  p.lockedZ = false;
+  p.lockedZ = true;
  
   p.maxIterCG = 1000;
   p.m = 0.032;
@@ -389,7 +389,7 @@ int main(int argc, char **argv) {
 	for(int z=0; z<LZ; z++) 
 	  for(int i=0; i<L/2; i++)  polyakov[i][z] = 0.0;	
 	polyakovLoops(gauge, polyakov);
-      
+	
 	zeroField(avWc);
 	areaLaw(gauge, avWc);
       
