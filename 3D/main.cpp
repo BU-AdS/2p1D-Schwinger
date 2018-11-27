@@ -848,9 +848,8 @@ double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L]
 	for(int mu=0; mu<D; mu++){
 	  Hmom += mom[x][y][z][mu]*mom[x][y][z][mu]/2.0;
 	}
-	if(LZ == 1) Hmom -= mom[x][y][z][2]*mom[x][y][z][2]/2.0;
       }
-
+  
   
   if(!p.quenched) {
     extractLatSlice(gauge, gauge2D, 2);
