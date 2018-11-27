@@ -1,53 +1,45 @@
-.SUFFIXES:
-.SUFFIXES: .o .cpp
+#Your path to...
+ARPACK=/usr/local/Cellar/arpack/3.6.2
+OMP=/usr/local/opt/libomp
 
-QDPHOME = 
-LIBNAME = 
-LIBDIRS  = -L/usr/local/opt/libomp/lib -L/usr/local/Cellar/arpack/3.6.2/lib
-#-L$(QDPHOME)/lib -l$(LIBNAME)
+ARPACK_LIB= -L${ARPACK}/lib/ -larpack
+#ARPACK_FLAGS= -DUSE_ARPACK -I${ARPACK}/libexec/include/arpack ${ARPACK_LIB}
 
-INC = -I/usr/local/opt/libomp/include
-#-I$(QDPHOME)/include
+OMP_LIB = -L${OMP}/lib/ -lomp
+OMP_FLAGS += -DUSE_OMP -I${OMP}/include -Xpreprocessor -fopenmp ${OMP_LIB}
 
 #============================================================
+
 TARGET = u1
 
-C_SOURCES = main.cpp ran2s.cpp rangs.cpp 
-C_OBJS    = main.o ran2s.o rangs.o 
-MY_INCLUDES = ran2s.h 
+SOURCES = main.cpp ran2s.cpp rangs.cpp 
+OBJS    = main.o ran2s.o rangs.o 
+INCLUDES = ran2s.h 
 
-#CXX = pgc++ -fast -Minfo=all -Mprof=ccff
+ERRS=-Wall
+
 CXX=g++
-CXXFLAGS = -g -O2 -std=c++11
-#-Xpreprocessor -fopenmp $(INC) $(LIBDIRS) -lomp -DUSE_OMP
-#CXXFLAGS+=-DCHECK_GAUGE
+CXXFLAGS = -O3 -g ${ERRS} -std=c++11 ${ARPACK_FLAGS} ${OMP_FLAGS} 
 
 #============================================================
+
 all: $(TARGET)
 
-.o:.cpp	$(MY_INCLUDES)
-	$(CXX)  -c  $(CXXFLAGS) $<  
+u1: ${OBJS} 
+	$(CXX) $(CXXFLAGS) -o u1 $(OBJS)
 
-$(TARGET) :   $(C_OBJS)
-	$(CXX) $(CXXFLAGS)  $^ -o $@
+main.o: main.cpp ${INCLUDES} Makefile
+	${CXX} ${CXXFLAGS} -c main.cpp
 
-# Implicit rules: $@ = target name, $< = first prerequisite name, $^ = name of all prerequisites 
 #============================================================
 
-ALL_SOURCES = Makefile $(C_SOURCES) $(MY_INCLUDES)
-
-NOTES = u1StringTension.nb
+ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES)
 
 clean:
-	rm -f $(TARGET) $(C_OBJS) core 
+	rm -f $(TARGET) $(OBJS) core*
 
-TAGS:	$(ALL_SOURCES)
-	etags $(ALL_SOURCES)
-
-tar: $(ALL_SOURCES) $(NOTES)
-	tar cvf $(TARGET).tar $(ALL_SOURCES)  $(NOTES)
+tar: $(ALL_SOURCES) 
+	tar cvf $(TARGET).tar $(ALL_SOURCES)  
 
 $(TARGET).ps: $(ALL SOURCES)
 	enscript -pcode.ps $(ALL_SOURCES)
-
-

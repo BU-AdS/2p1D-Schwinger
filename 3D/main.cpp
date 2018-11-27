@@ -97,15 +97,48 @@ void polyakovLoops(Complex  gauge[L][L][LZ][D], Complex polyakov[L/2][LZ]);
 double getTopCharge(Complex gauge[L][L][LZ][D], param_t p, int z);
 void smearLink(Complex (&gaugeSmeared)[L][L][2], Complex gauge[L][L][2], param_t p);
 void gaussReal_F(double (&field)[L][L][LZ][D]);
+
 int hmc(Complex (&gauge)[L][L][LZ][D], param_t p, int iter);
-double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],Complex chi[L][L][LZ], param_t p);
-void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Complex chi[L][L][LZ], param_t p);
-void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], param_t p);
+double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
+	     Complex chi[L][L], param_t p);
+void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D],
+		Complex chi[L][L], param_t p);
+void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D],
+	    Complex (&gauge)[L][L][LZ][D], param_t p);
+void forceD(double fV[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], param_t p);
+void TestCG(Complex gauge[L][L][D], param_t p);
+
 void checkGauge(Complex gauge[L][L][LZ][D], Complex gaugeAlt[L][L][LZ][D], int n);
 
+void gaussComplex_F(Complex eta[L][L], double w, param_t p);
+
+// Blas tools
+double norm2(Complex psi[L][L]);
+Complex cDotProduct(Complex psi1[L][L], Complex psi2[L][L]);
+void caxpby(Complex a, Complex X[L][L], Complex b,
+	    Complex Y[L][L], Complex result[L][L]);
+
+// Fermion utils
+// Dslash + m
+void Dpsi(Complex psi2[L][L], Complex psi1[L][L], Complex gauge[L][L][D], param_t p );
+
+// Dslash + m
+void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L],
+	     Complex gauge[L][L][D], param_t p );
+
+// gamma_5
+void gamma_5(Complex psi2[L][L], Complex psi1[L][L], param_t p );
+
+// gamma_5 (Dslash + m) gamma_5 (Dslash + m)
+void DdagDpsi(Complex psi2[L][L], Complex psi1[L][L],
+	      Complex gauge[L][L][D], param_t p );
+
+int Ainv_psi(Complex psi[L][L], Complex b[L][L], Complex psi0[L][L],
+	     Complex gauge[L][L][D], param_t p);
+
+
 // Zero lattice vectors.
-template<typename T> inline void zeroLat(T v[L][L][LZ][D])
-{
+template<typename T> inline void zeroLat(T v[L][L][LZ][D]) {
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
       for(int z=0; z<LZ; z++)
@@ -113,9 +146,17 @@ template<typename T> inline void zeroLat(T v[L][L][LZ][D])
 	  v[x][y][z][mu] = 0.0;
 }
 
+// Zero lattice vectors.
+template<typename T> inline void zeroLat2D(T v[L][L][D]) {
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int mu=0; mu<D; mu++)
+	v[x][y][mu] = 0.0;
+}
+
+
 // Copy lattice vector
-template<typename T> inline void copyLat(T v2[L][L][LZ][D],T v1[L][L][LZ][D])
-{
+template<typename T> inline void copyLat(T v2[L][L][LZ][D],T v1[L][L][LZ][D]) {
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
       for(int z=0; z<LZ; z++)
@@ -124,17 +165,54 @@ template<typename T> inline void copyLat(T v2[L][L][LZ][D],T v1[L][L][LZ][D])
 }
 
 // Copy lattice vector
-template<typename T> inline void copyLat2D(T v2[L][L][2],T v1[L][L][2])
-{
+template<typename T> inline void copyLat2D(T v2[L][L][2],T v1[L][L][2]) {
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
       for(int mu=0; mu<2; mu++)
 	v2[x][y][mu] = v1[x][y][mu];
 }
 
+// Extract 2D slice
+template<typename T> inline void extractLatSlice(T gauge[L][L][LZ][D],
+						 T gauge2D[L][L][D],
+						 int slice) {
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int mu=0;mu<D;mu++)
+	gauge2D[x][y][mu] =  gauge[x][y][slice][mu];
+}
+
+
+// Insert 2D slice
+template<typename T> inline void insertLatSlice(T gauge[L][L][LZ][D],
+						T gauge2D[L][L][D],
+						int slice) {
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int mu=0;mu<D;mu++)
+	gauge[x][y][slice][mu] = gauge2D[x][y][mu];
+}
+
+
+// Copy lattice field
+template<typename T> inline void copyField(T psi2[L][L][LZ], T psi1[L][L][LZ]) {
+
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int z=0; z<LZ; z++)
+	psi2[x][y][z] = psi1[x][y][z];
+}
+
+// Copy lattice field
+template<typename T> inline void copyField2D(T psi2[L][L],T psi1[L][L]) {
+  for(int x =0;x< L;x++)
+    for(int y =0;y< L;y++)
+      psi2[x][y] =  psi1[x][y];
+}
+
+
 // Zero lattice field.
-template<typename T> inline void zeroField(T psi[L][L][LZ])
-{
+template<typename T> inline void zeroField(T psi[L][L][LZ]) {
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
       for(int z=0; z<LZ; z++) {
@@ -142,17 +220,23 @@ template<typename T> inline void zeroField(T psi[L][L][LZ])
       }
 }
 
-
 // Zero lattice field.
-template<typename T> inline void zeroField2D(T psi[L][L])
-{
+template<typename T> inline void zeroField2D(T psi[L][L]) {
+
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
-      for(int z=0; z<LZ; z++) {
-	psi[x][y][z] = 0.0;
-      }
+      psi[x][y] = 0.0;
 }
 
+
+// Add Equ conj(v2) dot v1 lattice field
+template<typename T> inline T dotField2D(T psi1[L][L], T psi2[L][L]) {
+  T scalar = (T) 0.0;
+  for(int x =0;x< L;x++)
+    for(int y =0;y< L;y++)
+      scalar += conj(psi1[x][y])*psi2[x][y];
+  return scalar;
+}
 
 void printParams(param_t p) {
   cout << endl;
@@ -225,9 +309,9 @@ int main(int argc, char **argv) {
   if(p.checkpointStart > 0) p.iterHMC += p.checkpointStart;
 
   p.Latsize = L;
-  p.nstep = 100;
-  p.dt = 0.01;
-  p.quenched = true;
+  p.nstep = 200;
+  p.dt = 0.005;
+  p.quenched = false;
   p.lockedZ = true;
  
   p.maxIterCG = 1000;
@@ -526,16 +610,6 @@ void readGaugeLattice(Complex gauge[L][L][LZ][D], string name){
   return;
 }
 
-
-
-
-
-
-
-
-
-
-
 // /*===============================================================================
 //   Gaussian numbers with p(theta) = sqrt(beta/ 2 PI) exp( - beta* theta^2/2)
 //   <Gaussian^2> = 1/beta  
@@ -633,9 +707,7 @@ void smearLink(Complex (&Smeared)[L][L][2], Complex gauge[L][L][2], param_t p){
 	  Smeared[x][y][mu] = polar(1.0, arg(SmearedTmp[x][y][mu]));
 	}
   }
-}																   
-
-
+}
 
 int hmc(Complex (&gauge)[L][L][LZ][D], param_t p, int iter) {
 
@@ -645,19 +717,31 @@ int hmc(Complex (&gauge)[L][L][LZ][D], param_t p, int iter) {
   
   double mom[L][L][LZ][D];
   Complex gaugeOld[L][L][LZ][D];
-  Complex chi[L][L][LZ], eta[L][L][LZ];
+  Complex gauge2D[L][L][D];
+  Complex chi[L][L], eta[L][L];
   double H, Hold, rmsq;
 
   copyLat(gaugeOld, gauge);
   zeroLat(mom); 
-  zeroField(chi);
-  zeroField(eta);
+  zeroField2D(chi);
+  zeroField2D(eta);
   H = 0.0;
   Hold = 0.0;
 
   // init mom[L][L][LZ][D]  <mom^2> = 1;
   gaussReal_F(mom); 
 
+  if(!p.quenched) {
+    rmsq = 0.5;
+    gaussComplex_F(eta, rmsq, p);  //  chi[L][L]
+    extractLatSlice(gauge, gauge2D, 2);
+    Dpsi(chi, eta, gauge2D, p);
+    
+    for(int x = 0;x< L;x++)  //Masks out odd sites.
+      for(int y = 0;y< L;y++)
+	if((x + y)%2 == 1) chi[x][y] = 0.0;
+  }
+  
   copyLat(gaugeOld, gauge);
   Hold = calcH(mom, gauge, chi, p);
   checkGauge(gauge, gaugeOld, iter);
@@ -713,15 +797,35 @@ void gaussReal_F(double (&field)[L][L][LZ][D]) {
   return;
 }
 
+void gaussComplex_F(Complex eta[L][L], double w, param_t p) {
+
+  //normalized gaussian exp[ - eta*eta/2]  <eta^2> = 1;
+  int i;
+  double r, theta;
+  
+  for(int x =0;x< L;x++)
+    for(int y =0;y< L;y++) {
+      r = sqrt( - 2.0*w*log(drand48()) );
+      //r = sqrt( - 2.0*w*log((double)(rand())/RAND_MAX) );
+      theta   = TWO_PI*(double)(rand())/RAND_MAX;
+      eta[x][y] = Complex(r*cos(theta),r*sin(theta));
+      //eta[i] = cexp(theta*I);  works too!
+    };
+  return;
+}
+
+
 //Check... OK!
-double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L][L][LZ], param_t p) {
+double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L][L], param_t p) {
 
   double Hgauge = 0.0;
   double Hmom = 0.0;
+  double Hferm = 0.0;
   Complex plaq;
-  Complex chitmp[L][L][LZ];
+  Complex chitmp[L][L];
   double beta = p.beta;
   double betaz= p.betaz;
+  Complex gauge2D[L][L][D];
   
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
@@ -746,49 +850,81 @@ double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L]
 	}
 	if(LZ == 1) Hmom -= mom[x][y][z][2]*mom[x][y][z][2]/2.0;
       }
+
   
-  return Hgauge + Hmom;
+  if(!p.quenched) {
+    extractLatSlice(gauge, gauge2D, 2);
+    // cout << "Before Fermion force H = " << H << endl;
+    Complex scalar = Complex(0.0,0.0);
+    zeroField2D(chitmp);
+    Ainv_psi(chitmp, chi, chitmp, gauge2D, p);  
+    for(int x =0;x< L;x++)
+      for(int y =0;y< L;y++){
+	if((x+y)%2 ==0)
+	  scalar += conj(chi[x][y])*chitmp[x][y];
+      }
+    //H +=  real(dotField(chi,chitmp));
+    Hferm += real(scalar);
+    //cout << "After Fermion Force H  = " << H << endl;
+  }
+  
+  
+  return Hgauge + Hmom + Hferm;
 }
 
-//Check... OK!
-void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Complex chi[L][L][LZ], param_t p) {
-
+void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D],
+		Complex chi[L][L], param_t p) {
+  
   int dim = D;
   if(p.lockedZ) dim -= 1;
   
   int i, step;
   double fV[L][L][LZ][D];
+  double fD[L][L][D];
+  Complex gauge2D[L][L][D];
+  
+  //First 1/2 step.
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int z=0; z<LZ; z++) 
+	for(int mu=0; mu<dim; mu++) 
+	  gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * p.dt/2.0);
 
-  for(step = 0; step < p.nstep; step++) {
+  for(step = 1; step < p.nstep; step++) {
     
-    if(step == 0) {
-      //First 1/2 step.
-      for(int x=0; x<L; x++)
-	for(int y=0; y<L; y++)
-	  for(int z=0; z<LZ; z++) 
-	    for(int mu=0; mu<dim; mu++) 
-	      gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * p.dt/2.0);
-
-    } else {
-      
-      for(int x=0; x<L; x++)
-	for(int y=0; y<L; y++)
-	  for(int z=0; z<LZ; z++)
-	    for(int mu=0; mu<dim; mu++) 
-	      gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * p.dt);
-      
-    }
-    
-    //cout << "step:" << step;
-    forceV(fV, mom, gauge, p);
-
     for(int x=0; x<L; x++)
       for(int y=0; y<L; y++)
 	for(int z=0; z<LZ; z++)
-	  for(int mu=0; mu<dim; mu++)
-	    mom[x][y][z][mu] += (fV[x][y][z][mu])*p.dt;
-    
-    
+	  for(int mu=0; mu<dim; mu++) 
+	    gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * p.dt);
+           
+    forceV(fV, mom, gauge, p);
+    if(p.quenched) {
+      for(int x=0; x<L; x++)
+	for(int y=0; y<L; y++)
+	  for(int z=0; z<LZ; z++)
+	    for(int mu=0; mu<dim; mu++)
+	      mom[x][y][z][mu] += (fV[x][y][z][mu])*p.dt;
+    }
+    else {
+      extractLatSlice(gauge, gauge2D, 2);
+      forceD(fD, gauge2D, chi, p);
+      
+      for(int z=0; z<LZ; z++) {
+	if(z == 2) {	
+	  for(int x=0; x<L; x++)
+	    for(int y=0; y<L; y++)
+	      for(int mu=0; mu<D; mu++)	      
+		mom[x][y][z][mu] += (fV[x][y][z][mu] + fD[x][y][mu])*p.dt;
+	}
+	else {
+	  for(int x=0; x<L; x++)
+	    for(int y=0; y<L; y++)
+	      for(int mu=0; mu<D; mu++)	      
+		mom[x][y][z][mu] += (fV[x][y][z][mu])*p.dt;
+	}
+      }
+    }    
   } //end for loop
 
   //Final 1/2 step.
@@ -802,7 +938,8 @@ void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], Compl
 
 
 //Check... OK!
-void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D], param_t p) {
+void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D],
+	    Complex (&gauge)[L][L][LZ][D], param_t p) {
 
   //Zero out the forces
   zeroLat<double>(fV);
@@ -898,6 +1035,53 @@ void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D], Complex (&gau
   }
 }
 
+
+void forceD(double fD[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_t p) {
+
+  Complex chitmp[L][L];
+  Complex Dchitmp[L][L];
+  zeroField2D(chitmp);
+  zeroField2D(Dchitmp);
+  zeroLat2D(fD);
+  
+  Ainv_psi(chitmp, chi, chitmp, gauge, p); // note chitmp = 0 for ODD
+  Dpsi(Dchitmp, chitmp, gauge, p); // restrict to Dslash, m = 0
+
+  //#pragma omp parallel for
+  for(int x = 0; x< L;x++)
+    for(int y = 0;y < L; y++){
+      if((x + y)%2 ==1) chitmp[x][y] = Complex(0.0,0.0);
+      if((x + y)%2 ==0) Dchitmp[x][y]= Complex(0.0,0.0);
+    }
+    
+  double eta1;
+  for(int x=0; x<L;x++)
+    for(int y=0; y<L;y++) {
+      eta1 =(1.0 - 2.0*(x%2));
+	
+      if((x + y + 1)%2 == 0){ 
+	fD[x][y][0] += 2.0*imag(conj(Dchitmp[x][y]) *
+				gauge[x][y][0] * chitmp[(x+1)%L][y]);
+      }
+      else {
+	fD[x][y][0] += 2.0*imag(conj(Dchitmp[(x+1)%L][y]) *
+				conj(gauge[x][y][0]) * chitmp[x][y]);
+      };
+	
+      if((x + y + 1)%2 == 0){    
+	fD[x][y][1] += 2.0*eta1*imag(conj(Dchitmp[x][y]) *
+				     gauge[x][y][1] * chitmp[x][(y+1)%L]);
+      }
+      else {
+	fD[x][y][1] += 2.0*eta1*imag(conj(Dchitmp[x][(y+1)%L]) *
+				     conj(gauge[x][y][1]) * chitmp[x][y]);
+      }
+    }	    
+}
+
+
+
+
 // ===================================================================
 //  Creutz     exp[ -sigma L^2] exp[ -sigma(L-1)(L-1)]
 //  ratio:    ---------------------------------------  = exp[ -sigma]
@@ -905,7 +1089,7 @@ void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D], Complex (&gau
 // ==================================================================
 
 void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWc)[L][L][LZ]){
-
+  
   Complex w;
   int p1, p2, p3, p4;
   double denom = 1.0/(L*L);
@@ -982,3 +1166,196 @@ void polyakovLoops(Complex  gauge[L][L][LZ][D], Complex polyakov[L/2][LZ]){
   }
   return;
 }
+
+
+/*
+  For a 2D square lattice, the stencil is:
+
+  psi2[x] = D_xy psi_y = m psi_x delta_xy 
+  - eta_mu(x) [U(x,x+mu) psi[x+mu] - U*(x-mu,x) psi[x-mu]]
+
+  The even/odd anti-hermiticity             
+
+  eta_mu(x) [U(x,y)\deta_x+mu,y - U(y,x) delta_y+mu,
+ 
+  1 |  0 -eta1  0 |
+  - | +1    0  -1 |  , where eta0 = 1, eta1 = (-)^x = 1 - 2*(x%2)
+  2 |  0 +eta1  0 |
+
+*/
+
+void Dpsi(Complex psi2[L][L], Complex psi1[L][L], Complex gauge[L][L][D], param_t p ){
+  for(int x =0;x< L;x++)
+    for(int y =0;y< L;y++){
+      psi2[x][y] = p.m*psi1[x][y];
+      // cout<<"psi1[x,y] = ["<< x <<","<<y <<" ]  "<< psi1[x][y] << endl;
+      // cout<<"Dpsi2[x,y] = ["<< x <<","<<y <<" ]  "<< psi2[x][y] << endl <<endl;
+    }
+  
+  double eta1;
+  for(int x=0; x<L; x++) {
+    eta1 =(1 - 2*(x%2));
+    for(int y=0; y<L; y++) {      
+      psi2[x][y] += - (gauge[x][y][0] * psi1[(x+1)%L][y] - conj(gauge[ (x-1+L)%L ][y][0]) * psi1[ (x-1+L)%L ][y]);
+      psi2[x][y] += - eta1*(gauge[x][y][1]*psi1[x][ (y+1)%L ] - conj(gauge[x][ (y-1+L)%L ][1])*psi1[x][ (y-1+L)%L ]);
+      // cout<<"Dpsi2[x,y] = ["<< x <<","<<y <<" ]  "<< psi2[x][y] << endl <<endl;
+    }
+  }
+}
+
+void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p ) {
+  
+  // For a 2D square lattice, the stencil is:
+  //   1 |  0 -eta1  0 |
+  //   - | +1    0  -1 |  , where eta0 = 1, eta1 = (-)^x = 1 - 2(x%L)
+  //   2 |  0 +eta1  0 |
+
+  //#pragma omp parallel for
+  for(int x =0;x< L;x++)
+    for(int y =0;y< L;y++)
+      psi2[x][y] = p.m*psi1[x][y];
+  
+  double eta1;
+  for(int x=0; x<L; x++) {
+    eta1 =(1 - 2*(x%2));
+    for(int y=0; y<L; y++) {   
+      psi2[x][y] += (gauge[x][y][0] * psi1[(x+1)%L][y] - conj(gauge[(x-1 +L)%L][y][0]) * psi1[(x-1 + L)%L][y]);
+      psi2[x][y] += eta1*(gauge[x][y][1]*psi1[x][(y+1)%L] - conj(gauge[x][(y-1+L)%L][1])*psi1[x][(y-1+L)%L]);
+    }
+  }
+}
+
+//=======================//
+// Note: Ddag D = D Ddag //
+///======================//
+
+void DdagDpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p ) {
+  
+  Complex psitmp[L][L];
+  zeroField2D(psitmp);
+  Dpsi(psitmp, psi1, gauge, p);
+  Ddagpsi(psi2, psitmp, gauge, p);
+}
+
+/*===================== 
+  CG solutions to Apsi = b 
+  see http://en.wikipedia.org/wiki/Conjugate_gradient_method
+  ======================*/
+
+int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gauge[L][L][D], param_t p) {
+  Complex res[L][L] , pvec[L][L], Apvec[L][L];
+  double alpha, beta, denom ;
+  double rsq = 0, rsqNew = 0, truersq=0.0, bsqrt = 0.0;
+  
+  //Intialize  
+  zeroField2D(res);
+  zeroField2D(Apvec);
+  zeroField2D(pvec);
+  
+  // Find norm of rhs.
+  bsqrt =  real(dotField2D(b,b));
+  bsqrt = sqrt(bsqrt);
+  
+  copyField2D(res,b); // res = b  - A psi0, for now start with phi0 = 0
+  copyField2D(pvec, res);
+
+  rsq =  real(dotField2D(res,res));
+  
+  // cout << "# Enter Ainv_p  bsqrt =  " << bsqrt << "  rsq   = " << rsq << endl;
+  
+  // Compute Ap.
+  DdagDpsi(Apvec, pvec, gauge,p);
+  
+  // iterate till convergence
+  int k;
+  int success = 0;
+  for(k = 0; k< p.maxIterCG; k++) {
+    
+    denom = real(dotField2D(pvec,Apvec));
+    alpha = rsq/denom;
+    
+    for(int x=0; x<L; x++)
+      for(int y=0; y<L; y++) {
+	psi[x][y] +=  alpha * pvec[x][y];
+	res[x][y] += - alpha*Apvec[x][y];
+      }
+    
+    // Exit if new residual is small enough
+    rsqNew = real(dotField2D(res,res));
+    //   cout << "k = "<< k <<"   rsqNew = " << rsqNew << endl; 
+    
+    if (sqrt(rsqNew) < p.eps*bsqrt) {
+      //    	printf("Final rsq = %g\n", rsqNew);
+      break;
+    }
+    
+    // Update vec using new residual
+    beta = rsqNew / rsq;
+    rsq = rsqNew;
+    
+    for(int x =0;x<L;x++)
+      for(int y =0;y<L;y++)
+	pvec[x][y] = res[x][y] + beta * pvec[x][y];
+    
+    // Compute the new Ap.
+    DdagDpsi(Apvec, pvec, gauge,p);  
+  }
+  //End loop over k
+  
+  
+  if(k == p.maxIterCG) {
+    printf("CG: Failed to converge iter = %d, rsq = %e\n", k,rsq); 
+    success = 0; // Failed convergence 
+  }
+  else {
+    success = 1; // Convergence 
+    k++;
+  }
+
+  DdagDpsi(Apvec,  psi, gauge,p);
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      res[x][y] = b[x][y] - Apvec[x][y];
+  
+  //truersq =  real(dotField2D(res,res));
+  //printf("CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,rsq,truersq);
+  return success;
+}
+
+void TestCG(Complex gauge[L][L][D], param_t p) {
+  
+  Complex b[L][L];
+  double rmsq = 0.5;
+  gaussComplex_F(b,rmsq,p);
+  Complex psi1[L][L];
+  Complex psi2[L][L];
+  zeroField2D(psi1);
+  zeroField2D(psi2);
+
+  Ainv_psi(psi1,b,psi1, gauge,p);
+  DdagDpsi(psi2, psi1, gauge,p);
+  for(int x = 0;x < L;x++)
+    for(int y=0;y<L;y++)
+      cout<<" (x,y) = ("<< x <<","<<y<<") psi1 = " << psi1[x][y]
+	  << "  b[x][y] =  " <<  b[x][y] << " psi2[x][y] = "<<  psi2[x][y] << endl;
+    
+  /*
+    for(int x = 0;x < L;x++)
+    for(int y=0;y<L;y++)
+    cout<<" (x,y) = ("<< x <<","<<y<<") " << psi[x][y] << endl;
+    DdagDpsi(psi, b, gauge,p);
+
+    for(int x = 0;x < L;x++)
+    for(int y=0;y<L;y++)
+    cout<<" (x,y) = ("<< x <<","<<y<<") " << psi[x][y] << endl;
+   
+  
+    Ainv_psi(psi,b,psi, gauge,p);
+    for(int x = 0;x < L;x++)
+    for(int y=0;y<L;y++)
+    cout<< " (x,y) = ("<< x <<","<<y<<") "<< psi[x][y] << endl;
+  */
+
+}
+
+

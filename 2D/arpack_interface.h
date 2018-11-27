@@ -233,3 +233,385 @@ void arpackErrorHelpNEUPD() {
   printf("        data was modified before entering ZNEUPD\n");
 }
 
+/*
+void polyOp(const Dirac &mat,
+	    cudaColorSpinorField &out,
+	    const cudaColorSpinorField &in,	   
+	    QudaArpackParam *arpack_param) {
+  
+  Float delta,theta;
+  Float sigma,sigma1,sigma_old;
+  Float d1,d2,d3;
+  
+  double a = arpack_param->amin;
+  double b = arpack_param->amax;
+  
+  delta = (b-a)/2.0;
+  theta = (b+a)/2.0;
+  
+  sigma1 = -delta/theta;
+  
+  blas::copy(out,in);
+  
+  if(arpack_param->polyDeg == 0)
+    return;
+  
+  d1 =  sigma1/delta;
+  d2 =  1.0;
+
+  if(arpack_param->useNormOp && arpack_param->useDagger) {
+    mat.MMdag(out,in);
+  }
+  else if(arpack_param->useNormOp && !arpack_param->useDagger) {
+    mat.MdagM(out,in);
+  }
+  else if (!arpack_param->useNormOp && arpack_param->useDagger) {
+    mat.Mdag(out,in);
+  }
+  else {  
+    mat.M(out,in);
+  }
+  
+  blas::axpby(d2, const_cast<cudaColorSpinorField&>(in), d1, out);
+  
+  //C_1(x) = x
+  if(arpack_param->polyDeg == 1 )
+    return;
+  
+  // C_0 is the current 'in'  vector.
+  // C_1 is the current 'out' vector.
+  
+  //Clone 'in' to two temporary vectors.
+  cudaColorSpinorField *tmp1 = new cudaColorSpinorField(in);
+  cudaColorSpinorField *tmp2 = new cudaColorSpinorField(in);
+  
+  blas::copy(*tmp1,in);
+  blas::copy(*tmp2,out);
+  
+  //Using Chebyshev polynomial recursion relation,
+  //C_{m+1}(x) = 2*x*C_{m} - C_{m-1}
+  
+  sigma_old = sigma1;
+  
+  //construct C_{m+1}(x)
+  for(int i=2; i < arpack_param->polyDeg; i++){
+    
+    sigma = 1.0/(2.0/sigma1-sigma_old);
+    
+    d1 = 2.0*sigma/delta;
+    d2 = -d1*theta;
+    d3 = -sigma*sigma_old;
+    
+    //mat*C_m
+    if(arpack_param->useNormOp && arpack_param->useDagger) {
+      mat.MMdag(out, *tmp2);
+    }
+    else if(arpack_param->useNormOp && !arpack_param->useDagger) {
+      mat.MdagM(out, *tmp2);
+    }
+    else if (!arpack_param->useNormOp && arpack_param->useDagger) {
+      mat.Mdag(out, *tmp2);
+    }
+    else {  
+      mat.M(out, *tmp2);
+    }
+    
+    blas::ax(d3,*tmp1);
+    std::complex<double> d1c(d1,0.0);
+    std::complex<double> d2c(d2,0.0);
+    blas::cxpaypbz(*tmp1,d2c,*tmp2,d1c,out);
+    
+    blas::copy(*tmp1,*tmp2);
+    blas::copy(*tmp2,out);
+    sigma_old = sigma;
+    
+  }
+  
+  delete tmp1;
+  delete tmp2;
+}
+*/
+
+void arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L]) {
+  
+  //Construct parameters and memory allocation
+  //------------------------------------------
+  
+  // all FORTRAN communication uses underscored 
+  int ido_; 
+  int info_;
+  int *ipntr_ = (int*)malloc(14*sizeof(int));
+  int *iparam_ = (int*)malloc(11*sizeof(int));
+  int n_    = L*L,
+    nev_    = p.nEv,
+    nkv_    = p.nKv,
+    ldv_    = L*L,
+    lworkl_ = (3 * nkv_*nkv_ + 5*nkv_) * 2,
+    rvec_   = 1;
+  int max_iter = p.arpackMaxiter;
+
+  double tol_ = p.arpackTol;
+
+  Complex Zero(0.0,0.0);
+  
+  double *mod_evals_sorted  = (double*)malloc(nkv_*sizeof(double));
+  int *evals_sorted_idx = (int*)malloc(nkv_*sizeof(int));
+  
+  //Memory checks
+  if((mod_evals_sorted == nullptr) ||
+     (evals_sorted_idx == nullptr) ) {
+    printf("eigenSolver: not enough memory for host eigenvalue sorting");
+    exit(0);
+  }
+  
+  //ARPACK workspace
+  std::complex<double> sigma_ = 0.0;
+  std::complex<double> *resid_ =
+    (std::complex<double> *) malloc(ldv_*sizeof(std::complex<double>));
+  std::complex<double> *w_workd_ =
+    (std::complex<double> *) malloc(3*ldv_*sizeof(std::complex<double>));
+  std::complex<double> *w_workl_ =
+    (std::complex<double> *) malloc(lworkl_*sizeof(std::complex<double>)); 
+  std::complex<double> *w_workev_=
+    (std::complex<double> *) malloc(2*nkv_*sizeof(std::complex<double>));    
+  double *w_rwork_  = (double *)malloc(nkv_*sizeof(double));    
+  int *select_ = (int*)malloc(nkv_*sizeof(int));
+  
+  std::complex<double> *evecs = (std::complex<double> *) malloc(nkv_*L*L*sizeof(std::complex<double>));
+  std::complex<double> *evals = (std::complex<double> *) malloc(nkv_    *sizeof(std::complex<double>));
+
+  for(int n=0; n<nkv_; n++) {
+    evals[n] = Zero;
+    for(int x=0; x<L; x++) {
+      for(int y=0; y<L; y++) {
+	evecs[n*L*L + x*L + y] = Zero;
+	resid_[y*L + x] = guess[x][y];
+      }
+    }
+  }
+      
+  //Alias pointers
+  std::complex<double> *evecs_ = nullptr;
+  evecs_ = (std::complex<double>*) (double*)(evecs);    
+  std::complex<double> *evals_ = nullptr;
+  evals_ = (std::complex<double>*) (double*)(evals);
+  
+  //Memory checks
+  if((iparam_ == nullptr) ||
+     (ipntr_ == nullptr) || 
+     (resid_ == nullptr) ||  
+     (w_workd_ == nullptr) || 
+     (w_workl_ == nullptr) ||
+     (w_workev_ == nullptr) ||
+     (w_rwork_ == nullptr) || 
+     (select_ == nullptr) ) {
+    printf("eigenSolver: not enough memory for ARPACK workspace.\n");
+    exit(0);
+  }    
+
+  //Assign values to ARPACK params 
+  ido_        = 0;
+  info_       = 0;
+  iparam_[0]  = 1;
+  iparam_[1]  = 1;
+  iparam_[2]  = max_iter;
+  iparam_[3]  = 1;
+  iparam_[6]  = 1;
+  //iparam_[7]  = 1;
+  
+  //ARPACK problem type to be solved
+  char howmny='P';
+  char bmat = 'I';
+  char *spectrum;
+  spectrum = strdup("SR"); //Initialsed just to stop the compiler warning...
+  
+  int iter_cnt= 0;
+
+  //Start ARPACK routines
+  //---------------------------------------------------------------------------------
+ 
+  Complex *psi1;
+  Complex *psi2;
+
+  Complex psi1_cpy[L][L];
+  Complex psi2_cpy[L][L];
+  
+  for(int x=0; x<L; x++) {
+    for(int y=0; y<L; y++) {
+      psi1_cpy[x][y] = Zero;
+      psi2_cpy[x][y] = Zero;
+    }
+  }
+  
+  psi1 = w_workd_;
+  psi2 = w_workd_ + L*L;
+
+  double t1;
+  double time = 0.0;;
+  do {
+    
+    t1 = -((double)clock());
+    
+    //Interface to arpack routines
+    //----------------------------
+    
+    ARPACK(znaupd)(&ido_, &bmat, &n_, spectrum, &nev_, &tol_, resid_, &nkv_,
+		   evecs_, &n_, iparam_, ipntr_, w_workd_, w_workl_, &lworkl_,
+		   w_rwork_, &info_, 1, 2);
+
+    if (info_ != 0) {
+      printf("\nError in znaupd info = %d. Exiting...\n",info_);
+      arpackErrorHelpNAUPD();
+      exit(0);
+    }
+    
+    if (ido_ == 99 || info_ == 1)
+      break;
+    
+    if (ido_ == -1 || ido_ == 1) {
+
+      //Copy from Arpack workspace
+      for(int y=0; y<L; y++) {
+	for(int x=0; x<L; x++) {
+	  psi1_cpy[x][y] = *(psi1 + x + y*L);
+	}
+      }
+      //Apply matrix-vector operation
+      DdagDpsi(psi2_cpy, psi1_cpy, gauge, p);
+      
+      //Copy to Arpack workspace
+      for(int y=0; y<L; y++) {
+	for(int x=0; x<L; x++) {
+	  *(psi2 + x + y*L) = psi2_cpy[x][y];
+	}
+      }
+    }
+    
+    t1 += clock();
+    time += t1;
+    if(iter_cnt % 100 == 0) printf("Arpack Iteration: %d (%e secs)\n", iter_cnt, time/CLOCKS_PER_SEC);
+    iter_cnt++;
+    
+  } while (99 != ido_ && iter_cnt < max_iter);
+  
+  //Subspace calulated sucessfully. Compute nEv eigenvectors and values   
+  printf("Finished in %e secs: iter=%04d  info=%d  ido=%d\n", time/CLOCKS_PER_SEC, iter_cnt, info_, ido_);      
+  printf("Computing eigenvectors\n");
+  
+  //Interface to arpack routines
+  //----------------------------
+  ARPACK(zneupd)(&rvec_, &howmny, select_, evals_, evecs_, &n_, &sigma_,
+		 w_workev_, &bmat, &n_, spectrum, &nev_, &tol_,
+		 resid_, &nkv_, evecs_, &n_, iparam_, ipntr_, w_workd_,
+		 w_workl_, &lworkl_, w_rwork_, &info_, 1, 1, 2);
+  if (info_ == -15) {
+    printf("\nError in zneupd info = %d. You likely need to\n"
+	   "increase the maximum ARPACK iterations. Exiting...\n", info_);
+    arpackErrorHelpNEUPD();
+    exit(0);
+  } else if (info_ != 0) {
+    printf("\nError in zneupd info = %d. Exiting...\n", info_);
+    arpackErrorHelpNEUPD();
+  }
+  
+  //Print out the computed ritz values, absolute values, and their error estimates
+  int nconv = iparam_[4];
+  for(int j=0; j<nconv; j++){
+  
+    printf("RitzValue[%04d]  %+e  %+e  %+e  error= %+e \n",j,
+	   real(evals_[j]),
+	   imag(evals_[j]),
+	   std::abs(evals_[j]),
+	   std::abs(*(w_workl_ + ipntr_[10]-1+j)));
+  
+    evals_sorted_idx[j] = j;
+    mod_evals_sorted[j] = std::abs(evals_[j]);
+  }
+  
+  //Sort the eigenvalues in absolute ascending order
+  t1 =  -((double)clock());;
+  sortAbs(mod_evals_sorted, nconv, true, evals_sorted_idx);
+  t1 +=  clock();
+  
+  //Print sorted evals
+  printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
+  printf("Sorted eigenvalues based on their absolute values:\n");
+  
+  
+  for(int j=0; j<nconv; j++){
+    printf("RitzValue[%04d]  %+e  %+e  %+e  error = %+e \n",j,
+	   real(evals_[evals_sorted_idx[j]]),
+	   imag(evals_[evals_sorted_idx[j]]),
+	   std::abs(evals_[evals_sorted_idx[j]]),
+	   std::abs( *(w_workl_ + ipntr_[10] - 1 + evals_sorted_idx[j])) );
+  }
+  
+  // Print additional convergence information.
+  if( (info_) == 1){
+    printf("Maximum number of iterations reached.\n");
+  }
+  else{
+    if(info_ == 3){
+      printf("Error: No shifts could be applied during implicit\n");
+      printf("Error: Arnoldi update, try increasing NkV.\n");
+    }
+  }
+
+  //Print Evalues
+  t1 = -(double)clock();
+  Complex psi3[L][L];
+  
+  for(int i =0 ; i < nev_ ; i++){
+
+    for(int x=0; x<L; x++)
+      for(int y=0; y<L; y++) {
+	psi3[x][y] = evecs[evals_sorted_idx[i]*L*L + L*y + x];
+      }
+    
+    //apply matrix-vector operation here:
+    DdagDpsi(psi2_cpy, psi3, gauge, p);
+
+    //Check norms
+    //cout << norm2(psi2_cpy) << " " << norm2(psi3) << endl;
+    
+    // lambda = v^dag * M*v    
+    evals_[i] = cDotProduct(psi3, psi2_cpy);
+    
+    Complex unit(1.0,0.0);
+    Complex m_lambda(-real(evals_[i]),
+		     -imag(evals_[i]));
+    
+    // d_v = ||M*v - lambda*v||
+    caxpby(unit, psi2_cpy, m_lambda, psi3, psi1_cpy);
+
+    for(int x=0; x<L; x++)
+      for(int y=0; y<L; y++) {
+	//cout << psi2_cpy[x][y] << " " << -m_lambda*psi3[x][y] << " " << psi1_cpy[x][y] << endl;
+      }
+    
+    double L2norm = norm2(psi1_cpy);    
+    printf("Eval[%04d] = %+e  %+e  Residual: %+e\n",
+	   i, real(evals_[i]), imag(evals_[i]), sqrt(L2norm));
+    
+    
+  }
+  //exit(0);
+  t1 += clock();
+  printf("Eigenvalues of Dirac operator computed in: %f sec\n",
+	 t1/CLOCKS_PER_SEC);
+  
+  // cleanup 
+  free(ipntr_);
+  free(iparam_);
+  free(mod_evals_sorted);
+  free(evals_sorted_idx);
+  free(resid_);
+  free(w_workd_);
+  free(w_workl_);
+  free(w_workev_);
+  free(w_rwork_);
+  free(select_);
+  free(spectrum);
+  
+  return;  
+}  

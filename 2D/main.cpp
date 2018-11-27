@@ -29,7 +29,7 @@
 
    Check: Dslash, Inverters, Dforce.
 
-   ===================================================================================*/
+  ===================================================================================*/
 
 #include <iostream>
 #include <fstream>
@@ -41,11 +41,8 @@
 
 using namespace std;
 #include "ran2s.h"
-#ifdef USE_ARPACK
-#include "arpack_interface.h"
-#endif
 
-#define L 48
+#define L 32
 #define D 2
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
@@ -88,23 +85,26 @@ typedef struct{
 void printParams(param_t p);
 void printLattice(Complex gauge[L][L][D]);
 void constructName(string &name, param_t p);
+void writeGaugeLattice(Complex gauge[L][L][D], string name);
+void readGaugeLattice(Complex gauge[L][L][D], string name);
 double measPlaq(Complex  gauge[L][L][D]);
-void getPhase(double phase64[L][L][D], const Complex gauge[L][L][D]);
-void getCompact(Complex gauge[L][L][D], const double phase[L][L][D]);
-void phaseUpdate(double phase[L][L][D],param_t p);
 void gaussStart(Complex gauge[L][L][D], param_t p);
 void coldStart(Complex gauge[L][L][D],param_t p);
 void areaLaw(Complex gauge[L][L][D], Complex avW[L][L], param_t p);
 void areaFast(const Complex gauge[L][L][D],  Complex avW[L][L]);
 void polyakovLoops(Complex  gauge[L][L][D], Complex polyakov[L/2]);
-void writeGaugeLattice(Complex gauge[L][L][D], string name);
-void readGaugeLattice(Complex gauge[L][L][D], string name);
+
+void getPhase(double phase64[L][L][D], const Complex gauge[L][L][D]);
+void getCompact(Complex gauge[L][L][D], const double phase[L][L][D]);
+void phaseUpdate(double phase[L][L][D],param_t p);
+
 double getTopCharge(Complex gauge[L][L][D], param_t p);
 void smearLink(Complex gaugeSmeared[L][L][D], Complex gauge[L][L][D], param_t p);
 void gaussReal_F(double field[L][L][D]);
 void gaussComplex_F(Complex eta[L][L], double w, param_t p);
 void MakeInstanton(Complex gauge[L][L][D], int Q, param_t p);
 void MakePointVortex(Complex gauge[L][L][D], int Q, int x0, int y0, param_t p);
+
 int hmc(Complex gauge[L][L][D], param_t p, int iter);
 double calcH(double mom[L][L][D], Complex gauge[L][L][D],Complex chi[L][L], param_t p);
 void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
@@ -112,121 +112,14 @@ void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
 void forceV(double fV[L][L][D], Complex gauge[L][L][D],param_t p);
 void forceD(double fV[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_t p);
 void DoPFlip(Complex gauge[L][L][D], param_t p);
-
-void arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L]);
-void TestCG(Complex gauge[L][L][D], param_t p);
 void TestForce(Complex gauge[L][L][D], param_t p);
 
-// Dslash + m
-void Dpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p );
+#include "linAlgHelpers.h"
+#include "dOpHelpers.h"
 
-// Dslash + m
-void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p );
-
-// gamma_5
-void gamma_5(Complex psi2[L][L], Complex  psi1[L][L], param_t p );
-
-// gamma_5 (Dslash + m) gamma_5 (Dslash + m)
-void DdagDpsi(Complex psi2[L][L], Complex  psi1[L][L],  Complex gauge[L][L][D], param_t p );
-
-// Blas tools
-double norm2(Complex psi[L][L]);
-Complex cDotProduct(Complex psi1[L][L], Complex psi2[L][L]);
-
-int Ainv_psi(Complex psi[L][L], Complex b[L][L], Complex  psi0[L][L], Complex gauge[L][L][D], param_t p);
-
-// Zero lattice vectors.
-template<typename T> inline void zeroLat(T v[L][L][D])
-{
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      for(int mu=0;mu<D;mu++)
-	v[x][y][mu] = 0.0;
-}
-
-// Copy lattice vector
-template<typename T> inline void copyLat(T v2[L][L][D],T v1[L][L][D])
-{
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      for(int mu=0;mu<D;mu++)
-	v2[x][y][mu] =  v1[x][y][mu];
-}
-
-// Add Equ v2 += v1 lattice vector
-template<typename T> inline void addEqLat(T v2[L][L][D],T v1[L][L][D])
-{
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      for(int mu=0;mu<D;mu++)
-	v2[x][y][mu] +=  v1[x][y][mu];
-}
-
-// Zero lattice field.
-template<typename T> inline void zeroField(T psi[L][L])
-{
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi[x][y] = 0.0;
-}
-
-// Copy lattice field
-template<typename T> inline void copyField(T psi2[L][L],T psi1[L][L])
-{
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi2[x][y] =  psi1[x][y];
-}
-
-// Add Equ v2 += v1 lattice field
-template<typename T> inline void addEqField(T psi2[L][L],T psi1[L][L])
-{
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi2[x][y] +=  psi1[x][y];
-}
-
-// Add Equ square of real b dot b lattice field
-template<typename T> inline T sqrSumField(T b[L][L])
-{
-  T square = (T) 0.0;
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      square +=  b[x][y]*b[x][y];
-  return square;
-}
-
-// Add Equ conj(v2) dot v1 lattice field
-template<typename T> inline T dotField(T psi1[L][L], T psi2[L][L])
-{
-  T scalar = (T) 0.0;
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      scalar +=  conj(psi1[x][y])*psi2[x][y];
-  return scalar;
-}
-
-void printParams(param_t p) {
-  cout << endl;
-  cout << "Physics:  Size = "<< L << endl;
-  cout << "          Beta = "<< p.beta << endl;
-  cout << "          Quenching = " << (p.quenched == true ? "True" : "False") << endl;
-  if (!p.quenched) cout << "         Mass = "<< p.m << endl;
-  cout << "HMC:      Therm Sweeps = " << p.therm << endl; 
-  cout << "          Data Points = " << p.iterHMC - p.therm << endl;
-  cout << "          Time Step = " << p.dt << endl;
-  cout << "          Trajectory Steps " << p.nstep << endl;
-  cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
-  cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
-  cout << "Smearing: APE iter = " << p.smearIter << endl;
-  cout << "          APE alpha = " << p.alpha << endl;
-}
-
-void constructName(string &name, param_t p) {
-  name += "_L" + to_string(p.Latsize) + "_B" + to_string(p.beta);
-  if(p.quenched == false) name += "_M"+ to_string(p.m);
-  name += "_dt" + to_string(p.dt) + "_nHMCstep" + to_string(p.nstep);
-}
+#ifdef USE_ARPACK
+#include "arpack_interface.h"
+#endif
 
 int expcount = 0;
 double expdHAve = 0.0;
@@ -235,43 +128,44 @@ int main(int argc, char **argv) {
 
   param_t p;
 
+  p.Latsize = L;
+  
   p.beta = atof(argv[1]); 
   p.iterHMC = atoi(argv[2]);
   p.therm = atoi(argv[3]);
   p.skip = atoi(argv[4]);
   p.chkpt = atoi(argv[5]);
-  p.checkpointStart = atoi(argv[6]);
+  p.checkpointStart = atoi(argv[6]);  
   if(p.checkpointStart > 0) p.iterHMC += p.checkpointStart;
+  p.nstep = atoi(argv[7]);
+  p.dt = atof(argv[8]);
+
   
-  p.Latsize = L;
-  p.nstep = 100;
-  p.dt = 0.01;
-  p.quenched = true;
+  p.smearIter = atoi(argv[9]);
+  p.alpha = atof(argv[10]);  
+  long iseed = (long)atoi(argv[11]);
 
-  p.maxIterCG = 1000;
-  p.m = 0.032;
-  p.eps = 1e-6;
+  if(atoi(argv[12]) != 0) 
+    p.quenched = false;
+  else
+    p.quenched = true;
 
-  p.smearIter = atoi(argv[7]);
-  p.alpha = atof(argv[8]);
-
-  long iseed = (long)atoi(argv[9]);
-    
+  p.m = atof(argv[13]);
+  
+  p.maxIterCG = atoi(argv[14]);
+  p.eps = atof(argv[15]);
+  
   //Arpack params
-  p.nEv = 16;
-  p.nKv = 32;
-  p.arpackTol = 1e-6;
-  p.arpackMaxiter = 1000000;
-  
-  int procs, threads;
-#ifdef USE_OMP
-  procs = omp_get_num_procs();
-  threads = omp_get_max_threads();
-  
-  cout << "Number of processors available = " << omp_get_num_procs ( ) << endl;
-  cout << "Number of threads =              " << omp_get_max_threads ( ) << endl;
+  p.nEv = atoi(argv[16]);
+  p.nKv = atoi(argv[17]);
+  p.arpackTol = atof(argv[18]);
+  p.arpackMaxiter = atoi(argv[19]);
+
+  int threads = atoi(argv[20]);
+
+#ifdef USE_OMP  
+  cout << "Number of threads = " << threads << endl;
 #else
-  procs = 1;
   threads = 1;
 #endif
 
@@ -368,13 +262,15 @@ int main(int argc, char **argv) {
 	plaqSum += plaq;
 	
 	double time = time0 + clock();
-	
-	cout << fixed << setprecision(16) << iter+1 << " ";
-	cout << time/(threads*CLOCKS_PER_SEC) << " ";
-	cout << plaqSum/count << " ";
-	cout << (double)top_stuck/(count*p.skip) << " ";
-	cout << expdHAve/expcount << " ";
-	cout << (double)accepted/(count*p.skip) << endl;
+
+	//Info dumped to stdout
+	cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
+	cout << time/CLOCKS_PER_SEC << " ";                 //Time
+	cout << plaqSum/count << " ";                       //Action
+	cout << (double)top_stuck/(count*p.skip) << " ";    //P(stuck)
+	cout << expdHAve/expcount << " ";                   //Average exp(-dH)
+	cout << (double)accepted/(count*p.skip) << " ";     //Acceptance
+	cout << top_int << endl;                            //T charge
 	
 	//Dump to file
 	name = "data";
@@ -383,9 +279,9 @@ int main(int argc, char **argv) {
 	sprintf(fname, "%s", name.c_str());	
 	fp = fopen(fname, "a");
 	
-	fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e\n",
+	fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e %d\n",
 		iter+1,
-		time/(threads*CLOCKS_PER_SEC),
+		time/CLOCKS_PER_SEC,
 		plaqSum/count,
 		(double)top_stuck/(count*p.skip),
 		expdHAve/expcount,
@@ -402,7 +298,6 @@ int main(int argc, char **argv) {
 
 #ifdef USE_ARPACK
 	arpack_solve_double(gauge, p, guess);
-	//exit(0);
 #endif
 	
 	for(int a=0; a<L/2; a++) polyakov[a] = 0.0;
@@ -855,8 +750,7 @@ void gaussReal_F(double field[L][L][D]) {
   return;
 }
 
-void gaussComplex_F(Complex eta[L][L], double w, param_t p)
-{
+void gaussComplex_F(Complex eta[L][L], double w, param_t p) {
   //normalized gaussian exp[ - eta*eta/2]  <eta^2> = 1;
   int i;
   double r, theta;
@@ -902,54 +796,51 @@ double calcH(double mom[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], par
     }
  
 
-  if(!p.quenched)
-    {// cout << "Before Fermion force H = " << H << endl;
-      Complex scalar = Complex(0.0,0.0);
-      zeroField(chitmp);
-      Ainv_psi(chitmp,chi,chitmp, gauge,p);  
-      for(int x =0;x< L;x++)
-	for(int y =0;y< L;y++){
-	  if((x+y)%2 ==0)
-	    scalar += conj(chi[x][y])*chitmp[x][y];
-	}
-      //      H +=  real(dotField(chi,chitmp));
-      H += real(scalar);
-      //       cout << "After Fermion Force H  = " << H << endl;
-    }
+  if(!p.quenched) {
+    // cout << "Before Fermion force H = " << H << endl;
+    Complex scalar = Complex(0.0,0.0);
+    zeroField(chitmp);
+    Ainv_psi(chitmp,chi,chitmp, gauge,p);  
+    for(int x =0;x< L;x++)
+      for(int y =0;y< L;y++){
+	if((x+y)%2 ==0)
+	  scalar += conj(chi[x][y])*chitmp[x][y];
+      }
+    //      H +=  real(dotField(chi,chitmp));
+    H += real(scalar);
+    //       cout << "After Fermion Force H  = " << H << endl;
+  }
   return H;
 }
 
-
-void trajectory(double mom[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], param_t p) {
-
+void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
+		Complex chi[L][L], param_t p) {
+  
   int i, step;
   double fV[L][L][D];
   double fD[L][L][D];
   
-  for(step = 0; step < p.nstep; step++) {
+  for(int x=0; x<L; x++)
+    for(int y =0; y<L; y++)
+      for(int mu=0; mu<D; mu++)
+	gauge[x][y][mu] *= polar(1.0,mom[x][y][mu] * p.dt/2.0);
+  
+  for(step = 1; step < p.nstep; step++) {
     
-    if(step == 0) {
-      for(int x =0;x< L;x++)
-	for(int y =0;y< L;y++)
-	  for(int mu = 0;mu <D;mu++)
-	    gauge[x][y][mu] *= polar(1.0,mom[x][y][mu] * p.dt/2.0);
-    }
-    else {
-      for(int x =0;x< L;x++)
-	for(int y =0;y< L;y++)
-	  for(int mu = 0;mu <D;mu++)
-	    gauge[x][y][mu] *= polar(1.0,mom[x][y][mu] * p.dt);
-    }
+    for(int x=0; x<L; x++)
+      for(int y=0; y<L; y++)
+	for(int mu=0; mu<D; mu++)
+	  gauge[x][y][mu] *= polar(1.0, mom[x][y][mu] * p.dt);
     
     forceV(fV, gauge, p);
-
+    
     if(!p.quenched) forceD(fD,gauge,chi,p);
     
     if(p.quenched) {
       for(int x=0; x<L; x++)
 	for(int y=0; y<L; y++)
 	  for(int mu=0; mu<D; mu++)
-	    mom[x][y][mu] +=  (fV[x][y][mu])*p.dt;
+	    mom[x][y][mu] += (fV[x][y][mu])*p.dt;      
     } else {
       for(int x=0; x<L; x++)
 	for(int y=0; y<L; y++)
@@ -957,11 +848,11 @@ void trajectory(double mom[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], 
 	    mom[x][y][mu] += (fV[x][y][mu] + fD[x][y][mu])*p.dt;
     } 
   } //end for loop
-
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      for(int mu = 0;mu <D;mu++){
-	gauge[x][y][mu] *= polar(1.0,mom[x][y][mu] * p.dt/2.0);
+  
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int mu=0; mu<D; mu++){
+	gauge[x][y][mu] *= polar(1.0, mom[x][y][mu] * p.dt/2.0);
       }
 }
 
@@ -984,8 +875,8 @@ void trajectory(double mom[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], 
 
   ============================*/
   
-void forceV(double fV[L][L][D],Complex gauge[L][L][D], param_t p)
-{
+void forceV(double fV[L][L][D],Complex gauge[L][L][D], param_t p) {
+  
   Complex plaq ;
   zeroLat<double>(fV);
   //#pragma omp parallel for
@@ -1017,22 +908,21 @@ void forceV(double fV[L][L][D],Complex gauge[L][L][D], param_t p)
   
   fD = - \dd_theta VD(theta) 
   =   chi*_e (1/D D^dag)_ee [ D^\dag (\dd_theta D) + (\dd_theta D^\dag) D ]_ee (1/D D^dag)_ee chi_e chi_e 
-
-
+  
   *****  Should optimze this to operate only on EVEN sites. ****
   chi_even, chitmp_even, Dchitmp_odd
   
 */
-void forceD(double fD[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_t p)
-{
+void forceD(double fD[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_t p) {
+
   Complex chitmp[L][L];
   Complex Dchitmp[L][L];
   zeroField(chitmp);
   zeroField(Dchitmp);
   zeroLat(fD);
-    
-  Ainv_psi(chitmp,chi,chitmp, gauge,p); // note chitmp = 0 for ODD
-  Dpsi(Dchitmp,chitmp,gauge,p); // restrict to Dslash, m = 0
+  
+  Ainv_psi(chitmp, chi, chitmp, gauge, p); // note chitmp = 0 for ODD
+  Dpsi(Dchitmp, chitmp, gauge, p); // restrict to Dslash, m = 0
 
   //#pragma omp parallel for
   for(int x = 0; x< L;x++)
@@ -1062,74 +952,6 @@ void forceD(double fD[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_
     }	    
 }
 
-/*
-  For a 2D square lattice, the stencil is:
-
-  psi2[x] = D_xy psi_y = m psi_x delta_xy 
-  - eta_mu(x) [U(x,x+mu) psi[x+mu] - U*(x-mu,x) psi[x-mu]]
-
-  The even/odd anti-hermiticity             
-
-  eta_mu(x) [U(x,y)\deta_x+mu,y - U(y,x) delta_y+mu,
- 
-  1 |  0 -eta1  0 |
-  - | +1    0  -1 |  , where eta0 = 1, eta1 = (-)^x = 1 - 2*(x%2)
-  2 |  0 +eta1  0 |
-
-*/
-
-void Dpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p )
-{
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++){
-      psi2[x][y] = p.m*psi1[x][y];
-      // cout<<"psi1[x,y] = ["<< x <<","<<y <<" ]  "<< psi1[x][y] << endl;
-      // cout<<"Dpsi2[x,y] = ["<< x <<","<<y <<" ]  "<< psi2[x][y] << endl <<endl;
-    }
-  
-  double eta1;
-  for(int x=0; x<L; x++) {
-    eta1 =(1 - 2*(x%2));
-    for(int y=0; y<L; y++) {      
-      psi2[x][y] += - (gauge[x][y][0] * psi1[(x+1)%L][y] - conj(gauge[ (x-1+L)%L ][y][0]) * psi1[ (x-1+L)%L ][y]);
-      psi2[x][y] += - eta1*(gauge[x][y][1]*psi1[x][ (y+1)%L ] - conj(gauge[x][ (y-1+L)%L ][1])*psi1[x][ (y-1+L)%L ]);
-      // cout<<"Dpsi2[x,y] = ["<< x <<","<<y <<" ]  "<< psi2[x][y] << endl <<endl;
-    }
-  }
-}
-
-void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p ) {
-  
-  // For a 2D square lattice, the stencil is:
-  //   1 |  0 -eta1  0 |
-  //   - | +1    0  -1 |  , where eta0 = 1, eta1 = (-)^x = 1 - 2(x%L)
-  //   2 |  0 +eta1  0 |
-
-  //#pragma omp parallel for
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi2[x][y] = p.m*psi1[x][y];
-  
-  double eta1;
-  for(int x=0; x<L; x++) {
-    eta1 =(1 - 2*(x%2));
-    for(int y=0; y<L; y++) {   
-      psi2[x][y] += (gauge[x][y][0] * psi1[(x+1)%L][y] - conj(gauge[(x-1 +L)%L][y][0]) * psi1[(x-1 + L)%L][y]);
-      psi2[x][y] += eta1*(gauge[x][y][1]*psi1[x][(y+1)%L] - conj(gauge[x][(y-1+L)%L][1])*psi1[x][(y-1+L)%L]);
-    }
-  }
-}
-//=======================//
-// Note: Ddag D = D Ddag //
-///======================//
-
-void DdagDpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p )
-{
-  Complex psitmp[L][L];
-  zeroField(psitmp);
-  Dpsi(psitmp, psi1, gauge, p);
-  Ddagpsi(psi2, psitmp, gauge, p);
-}
 
 
 /*============
@@ -1173,9 +995,9 @@ void MakeInstanton(Complex gauge[L][L][D], int Q, param_t p)
 
   =====================*/
 
-void MakePointVortex(Complex gauge[L][L][D], int Q, int x0, int y0, param_t p)
-{  double rx, ry;
-   
+void MakePointVortex(Complex gauge[L][L][D], int Q, int x0, int y0, param_t p) {
+
+  double rx, ry;
   for(int x =0;x< L;x++)
     for(int y =0;y< L;y++){
       rx = x - L/2 + 0.5;
@@ -1195,180 +1017,19 @@ void MakePointVortex(Complex gauge[L][L][D], int Q, int x0, int y0, param_t p)
 }
 
 // Do a parity flip based on eqn 4 of arXiv:1203.2560v2
-void DoPFlip(Complex gauge[L][L][D], param_t p)
-{
+void DoPFlip(Complex gauge[L][L][D], param_t p) {
   Complex parity_gauge[L][L][D];
-  for (int x = 0; x < L; x++)
-    {
-      for (int y = 0; y < L; y++)
-	{
-	  parity_gauge[(-x-1+2*L)%L][y][0] = conj(gauge[x][y][0]);
-	  parity_gauge[(-x+2*L)%L][y][1] = gauge[x][y][1];
-	}
+  for (int x = 0; x < L; x++) {
+    for (int y = 0; y < L; y++) {
+      parity_gauge[(-x-1+2*L)%L][y][0] = conj(gauge[x][y][0]);
+      parity_gauge[(-x+2*L)%L][y][1] = gauge[x][y][1];
     }
+  }
   copyLat(gauge, parity_gauge);
 }
 
-
-double norm2(Complex psi[L][L]) {
-
-  double norm2 = 0.0;
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      norm2 += psi[x][y].real() * psi[x][y].real() + psi[x][y].imag() * psi[x][y].imag();
-
-  return norm2/(L*L);
-}
-
-Complex cDotProduct(Complex psi1[L][L], Complex psi2[L][L]) {
-
-  Complex prod(0.0,0.0);
+void TestForce(Complex gauge[L][L][D], param_t p) {
   
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      prod += conj(psi1[x][y])*psi2[x][y];
-
-  return prod;
-}
-
-
-void caxpby(Complex a, Complex X[L][L], Complex b,
-	    Complex Y[L][L], Complex result[L][L]){
-
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      result[x][y] = a*X[x][y] + b*Y[x][y];
-}
-
-/*===================== 
-  CG solutions to Apsi = b 
-  see http://en.wikipedia.org/wiki/Conjugate_gradient_method
-  ======================*/
-
-int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gauge[L][L][D], param_t p)
-{
-  Complex res[L][L] , pvec[L][L], Apvec[L][L];
-  double alpha, beta, denom ;
-  double rsq = 0, rsqNew = 0, truersq=0.0, bsqrt = 0.0;
-  
-  //Intialize
-  
-  zeroField(res);
-  zeroField(Apvec);
-  zeroField(pvec);
-  
-  // Find norm of rhs.
-  bsqrt =  real(dotField(b,b));
-  bsqrt = sqrt(bsqrt);
-  
-  copyField(res,b); // res = b  - A psi0, for now start with phi0 = 0
-  copyField(pvec, res);
-
-  rsq =  real(dotField(res,res));
-  
-  // cout << "# Enter Ainv_p  bsqrt =  " << bsqrt << "  rsq   = " << rsq << endl;
-  
-  // Compute Ap.
-  DdagDpsi(Apvec, pvec, gauge,p);
-  
-  // iterate till convergence
-  int k;
-  int success = 0;
-  for(k = 0; k< p.maxIterCG; k++)
-    {
-      denom = real(dotField(pvec,Apvec));
-      alpha = rsq/denom;
-      
-      for(int x =0;x<L;x++)
-	for(int y =0;y<L;y++)
-	  {
-	    psi[x][y] +=  alpha * pvec[x][y];
-	    res[x][y] += - alpha*Apvec[x][y];
-	  }
-      
-      // Exit if new residual is small enough
-      rsqNew = real(dotField(res,res));
-      //   cout << "k = "<< k <<"   rsqNew = " << rsqNew << endl; 
-      
-      if (sqrt(rsqNew) < p.eps*bsqrt) {
-	//    	printf("Final rsq = %g\n", rsqNew);
-	break;
-      }
-      
-      // Update vec using new residual
-      beta = rsqNew / rsq;
-      rsq = rsqNew;
-      
-      for(int x =0;x<L;x++)
-	for(int y =0;y<L;y++)
-	  pvec[x][y] = res[x][y] + beta * pvec[x][y];
-      
-      // Compute the new Ap.
-      DdagDpsi(Apvec, pvec, gauge,p);  
-    }
-  
-  
-  if( k == p.maxIterCG) {
-    printf("CG: Failed to converge iter = %d, rsq = %e\n", k,rsq); 
-    success = 0; /* Failed convergence */
-  }
-  else
-    {
-      success = 1; /* Convergence */
-      k++;
-    }
-
-  DdagDpsi(Apvec,  psi, gauge,p);
-  for(int x =0;x<L;x++)
-    for(int y =0;y<L;y++)
-      res[x][y] =  b[x][y]- Apvec[x][y];
-  
-  double truesq;
-  truersq =  real(dotField(res,res));
-  //  printf("CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,rsq,truersq);
-  return success;
-}
-
-void TestCG(Complex gauge[L][L][D], param_t p)
-{
-
-  Complex b[L][L];
-  double rmsq = 0.5;
-  gaussComplex_F(b,rmsq,p);
-  Complex psi1[L][L];
-  Complex psi2[L][L];
-  zeroField(psi1);
-  zeroField(psi2);
-
-  Ainv_psi(psi1,b,psi1, gauge,p);
-  DdagDpsi(psi2, psi1, gauge,p);
-  for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-      cout<<" (x,y) = ("<< x <<","<<y<<") psi1 = " << psi1[x][y]
-	  << "  b[x][y] =  " <<  b[x][y] << " psi2[x][y] = "<<  psi2[x][y] << endl;
-    
-  /*
-    for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-    cout<<" (x,y) = ("<< x <<","<<y<<") " << psi[x][y] << endl;
-    DdagDpsi(psi, b, gauge,p);
-
-    for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-    cout<<" (x,y) = ("<< x <<","<<y<<") " << psi[x][y] << endl;
-   
-  
-    Ainv_psi(psi,b,psi, gauge,p);
-    for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-    cout<< " (x,y) = ("<< x <<","<<y<<") "<< psi[x][y] << endl;
-  */
-
-}
-
-void TestForce(Complex gauge[L][L][D], param_t p)
-{
-   
   Complex chi[L][L], eta[L][L];
   double fV[L][L][D], fD[L][L][D], mom[L][L][D];
   Complex Deltagauge[L][L][D];
@@ -1414,10 +1075,7 @@ void TestForce(Complex gauge[L][L][D], param_t p)
 	Deltagauge[x][y][1] =  gauge[x][y][1];
       }
 #endif
-
- 
-
-   
+  
   p.beta = 0.0;
   p.quenched = false;
   forceD(fD,gauge,chi,p);
@@ -1459,7 +1117,7 @@ void TestForce(Complex gauge[L][L][D], param_t p)
       cout<<"Ainv_chi[x,y] = ["<< x <<","<<y <<" ]  "<< chitmp[x][y] << endl <<endl;
 
 #endif
-
+  
   Hold = calcH(mom, gauge, chi, p);
   //   cout << " Original Hold = " << Hold << endl;
   for(int x=0;x<L;x++)
@@ -1479,388 +1137,4 @@ void TestForce(Complex gauge[L][L][D], param_t p)
 
 }
 
-#ifdef USE_ARPACK
-void polyOp(const Dirac &mat,
-	    cudaColorSpinorField &out,
-	    const cudaColorSpinorField &in,	   
-	    QudaArpackParam *arpack_param) {
-  
-  Float delta,theta;
-  Float sigma,sigma1,sigma_old;
-  Float d1,d2,d3;
-  
-  double a = arpack_param->amin;
-  double b = arpack_param->amax;
-  
-  delta = (b-a)/2.0;
-  theta = (b+a)/2.0;
-  
-  sigma1 = -delta/theta;
-  
-  blas::copy(out,in);
-  
-  if(arpack_param->polyDeg == 0)
-    return;
-  
-  d1 =  sigma1/delta;
-  d2 =  1.0;
 
-  if(arpack_param->useNormOp && arpack_param->useDagger) {
-    mat.MMdag(out,in);
-  }
-  else if(arpack_param->useNormOp && !arpack_param->useDagger) {
-    mat.MdagM(out,in);
-  }
-  else if (!arpack_param->useNormOp && arpack_param->useDagger) {
-    mat.Mdag(out,in);
-  }
-  else {  
-    mat.M(out,in);
-  }
-  
-  blas::axpby(d2, const_cast<cudaColorSpinorField&>(in), d1, out);
-  
-  //C_1(x) = x
-  if(arpack_param->polyDeg == 1 )
-    return;
-  
-  // C_0 is the current 'in'  vector.
-  // C_1 is the current 'out' vector.
-  
-  //Clone 'in' to two temporary vectors.
-  cudaColorSpinorField *tmp1 = new cudaColorSpinorField(in);
-  cudaColorSpinorField *tmp2 = new cudaColorSpinorField(in);
-  
-  blas::copy(*tmp1,in);
-  blas::copy(*tmp2,out);
-  
-  //Using Chebyshev polynomial recursion relation,
-  //C_{m+1}(x) = 2*x*C_{m} - C_{m-1}
-  
-  sigma_old = sigma1;
-  
-  //construct C_{m+1}(x)
-  for(int i=2; i < arpack_param->polyDeg; i++){
-    
-    sigma = 1.0/(2.0/sigma1-sigma_old);
-    
-    d1 = 2.0*sigma/delta;
-    d2 = -d1*theta;
-    d3 = -sigma*sigma_old;
-    
-    //mat*C_m
-    if(arpack_param->useNormOp && arpack_param->useDagger) {
-      mat.MMdag(out, *tmp2);
-    }
-    else if(arpack_param->useNormOp && !arpack_param->useDagger) {
-      mat.MdagM(out, *tmp2);
-    }
-    else if (!arpack_param->useNormOp && arpack_param->useDagger) {
-      mat.Mdag(out, *tmp2);
-    }
-    else {  
-      mat.M(out, *tmp2);
-    }
-    
-    blas::ax(d3,*tmp1);
-    std::complex<double> d1c(d1,0.0);
-    std::complex<double> d2c(d2,0.0);
-    blas::cxpaypbz(*tmp1,d2c,*tmp2,d1c,out);
-    
-    blas::copy(*tmp1,*tmp2);
-    blas::copy(*tmp2,out);
-    sigma_old = sigma;
-    
-  }
-  
-  delete tmp1;
-  delete tmp2;
-}
-
-
-void arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L]) {
-  
-  //Construct parameters and memory allocation
-  //------------------------------------------
-  
-  // all FORTRAN communication uses underscored 
-  int ido_; 
-  int info_;
-  int *ipntr_ = (int*)malloc(14*sizeof(int));
-  int *iparam_ = (int*)malloc(11*sizeof(int));
-  int n_    = L*L,
-    nev_    = p.nEv,
-    nkv_    = p.nKv,
-    ldv_    = L*L,
-    lworkl_ = (3 * nkv_*nkv_ + 5*nkv_) * 2,
-    rvec_   = 1;
-  int max_iter = p.arpackMaxiter;
-
-  double tol_ = p.arpackTol;
-
-  Complex Zero(0.0,0.0);
-  
-  double *mod_evals_sorted  = (double*)malloc(nkv_*sizeof(double));
-  int *evals_sorted_idx = (int*)malloc(nkv_*sizeof(int));
-  
-  //Memory checks
-  if((mod_evals_sorted == nullptr) ||
-     (evals_sorted_idx == nullptr) ) {
-    printf("eigenSolver: not enough memory for host eigenvalue sorting");
-    exit(0);
-  }
-  
-  //ARPACK workspace
-  std::complex<double> sigma_ = 0.0;
-  std::complex<double> *resid_ =
-    (std::complex<double> *) malloc(ldv_*sizeof(std::complex<double>));
-  std::complex<double> *w_workd_ =
-    (std::complex<double> *) malloc(3*ldv_*sizeof(std::complex<double>));
-  std::complex<double> *w_workl_ =
-    (std::complex<double> *) malloc(lworkl_*sizeof(std::complex<double>)); 
-  std::complex<double> *w_workev_=
-    (std::complex<double> *) malloc(2*nkv_*sizeof(std::complex<double>));    
-  double *w_rwork_  = (double *)malloc(nkv_*sizeof(double));    
-  int *select_ = (int*)malloc(nkv_*sizeof(int));
-  
-  std::complex<double> *evecs = (std::complex<double> *) malloc(nkv_*L*L*sizeof(std::complex<double>));
-  std::complex<double> *evals = (std::complex<double> *) malloc(nkv_    *sizeof(std::complex<double>));
-
-  for(int n=0; n<nkv_; n++) {
-    evals[n] = Zero;
-    for(int x=0; x<L; x++) {
-      for(int y=0; y<L; y++) {
-	evecs[n*L*L + x*L + y] = Zero;
-	resid_[y*L + x] = guess[x][y];
-      }
-    }
-  }
-      
-  //Alias pointers
-  std::complex<double> *evecs_ = nullptr;
-  evecs_ = (std::complex<double>*) (double*)(evecs);    
-  std::complex<double> *evals_ = nullptr;
-  evals_ = (std::complex<double>*) (double*)(evals);
-  
-  //Memory checks
-  if((iparam_ == nullptr) ||
-     (ipntr_ == nullptr) || 
-     (resid_ == nullptr) ||  
-     (w_workd_ == nullptr) || 
-     (w_workl_ == nullptr) ||
-     (w_workev_ == nullptr) ||
-     (w_rwork_ == nullptr) || 
-     (select_ == nullptr) ) {
-    printf("eigenSolver: not enough memory for ARPACK workspace.\n");
-    exit(0);
-  }    
-
-  //Assign values to ARPACK params 
-  ido_        = 0;
-  info_       = 0;
-  iparam_[0]  = 1;
-  iparam_[1]  = 1;
-  iparam_[2]  = max_iter;
-  iparam_[3]  = 1;
-  iparam_[6]  = 1;
-  //iparam_[7]  = 1;
-  
-  //ARPACK problem type to be solved
-  char howmny='P';
-  char bmat = 'I';
-  char *spectrum;
-  spectrum = strdup("SR"); //Initialsed just to stop the compiler warning...
-  
-  int iter_cnt= 0;
-
-  bool allocate = true;
-
-  //Start ARPACK routines
-  //---------------------------------------------------------------------------------
- 
-  Complex *psi1;
-  Complex *psi2;
-
-  Complex psi1_cpy[L][L];
-  Complex psi2_cpy[L][L];
-  
-  for(int x=0; x<L; x++) {
-    for(int y=0; y<L; y++) {
-      psi1_cpy[x][y] = Zero;
-      psi2_cpy[x][y] = Zero;
-    }
-  }
-  
-  psi1 = w_workd_;
-  psi2 = w_workd_ + L*L;
-
-  double t1;
-  double time = 0.0;;
-  do {
-    
-    t1 = -((double)clock());
-    
-    //Interface to arpack routines
-    //----------------------------
-    
-    ARPACK(znaupd)(&ido_, &bmat, &n_, spectrum, &nev_, &tol_, resid_, &nkv_,
-		   evecs_, &n_, iparam_, ipntr_, w_workd_, w_workl_, &lworkl_,
-		   w_rwork_, &info_, 1, 2);
-
-    if (info_ != 0) {
-      printf("\nError in znaupd info = %d. Exiting...\n",info_);
-      arpackErrorHelpNAUPD();
-      exit(0);
-    }
-    
-    if (ido_ == 99 || info_ == 1)
-      break;
-    
-    if (ido_ == -1 || ido_ == 1) {
-
-      //Copy from Arpack workspace
-      for(int y=0; y<L; y++) {
-	for(int x=0; x<L; x++) {
-	  psi1_cpy[x][y] = *(psi1 + x + y*L);
-	}
-      }
-      //Apply matrix-vector operation
-      DdagDpsi(psi2_cpy, psi1_cpy, gauge, p);
-      
-      //Copy to Arpack workspace
-      for(int y=0; y<L; y++) {
-	for(int x=0; x<L; x++) {
-	  *(psi2 + x + y*L) = psi2_cpy[x][y];
-	}
-      }
-    }
-    
-    t1 += clock();
-    time += t1;
-    if(iter_cnt % 100 == 0) printf("Arpack Iteration: %d (%e secs)\n", iter_cnt, time/CLOCKS_PER_SEC);
-    iter_cnt++;
-    
-  } while (99 != ido_ && iter_cnt < max_iter);
-  
-  //Subspace calulated sucessfully. Compute nEv eigenvectors and values   
-  printf("Finished in %e secs: iter=%04d  info=%d  ido=%d\n", time/CLOCKS_PER_SEC, iter_cnt, info_, ido_);      
-  printf("Computing eigenvectors\n");
-  
-  //Interface to arpack routines
-  //----------------------------
-  ARPACK(zneupd)(&rvec_, &howmny, select_, evals_, evecs_, &n_, &sigma_,
-		 w_workev_, &bmat, &n_, spectrum, &nev_, &tol_,
-		 resid_, &nkv_, evecs_, &n_, iparam_, ipntr_, w_workd_,
-		 w_workl_, &lworkl_, w_rwork_, &info_, 1, 1, 2);
-  if (info_ == -15) {
-    printf("\nError in zneupd info = %d. You likely need to\n"
-	   "increase the maximum ARPACK iterations. Exiting...\n", info_);
-    arpackErrorHelpNEUPD();
-    exit(0);
-  } else if (info_ != 0) {
-    printf("\nError in zneupd info = %d. Exiting...\n", info_);
-    arpackErrorHelpNEUPD();
-  }
-  
-  //Print out the computed ritz values, absolute values, and their error estimates
-  int nconv = iparam_[4];
-  for(int j=0; j<nconv; j++){
-  
-    printf("RitzValue[%04d]  %+e  %+e  %+e  error= %+e \n",j,
-	   real(evals_[j]),
-	   imag(evals_[j]),
-	   std::abs(evals_[j]),
-	   std::abs(*(w_workl_ + ipntr_[10]-1+j)));
-  
-    evals_sorted_idx[j] = j;
-    mod_evals_sorted[j] = std::abs(evals_[j]);
-  }
-  
-  //Sort the eigenvalues in absolute ascending order
-  t1 =  -((double)clock());;
-  sortAbs(mod_evals_sorted, nconv, true, evals_sorted_idx);
-  t1 +=  clock();
-  
-  //Print sorted evals
-  printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
-  printf("Sorted eigenvalues based on their absolute values:\n");
-  
-  
-  for(int j=0; j<nconv; j++){
-    printf("RitzValue[%04d]  %+e  %+e  %+e  error = %+e \n",j,
-	   real(evals_[evals_sorted_idx[j]]),
-	   imag(evals_[evals_sorted_idx[j]]),
-	   std::abs(evals_[evals_sorted_idx[j]]),
-	   std::abs( *(w_workl_ + ipntr_[10] - 1 + evals_sorted_idx[j])) );
-  }
-  
-  // Print additional convergence information.
-  if( (info_) == 1){
-    printf("Maximum number of iterations reached.\n");
-  }
-  else{
-    if(info_ == 3){
-      printf("Error: No shifts could be applied during implicit\n");
-      printf("Error: Arnoldi update, try increasing NkV.\n");
-    }
-  }
-
-  //Print Evalues
-  t1 = -(double)clock();
-  Complex psi3[L][L];
-  
-  for(int i =0 ; i < nev_ ; i++){
-
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++) {
-	psi3[x][y] = evecs[evals_sorted_idx[i]*L*L + L*y + x];
-      }
-    
-    //apply matrix-vector operation here:
-    DdagDpsi(psi2_cpy, psi3, gauge, p);
-
-    //Check norms
-    //cout << norm2(psi2_cpy) << " " << norm2(psi3) << endl;
-    
-    // lambda = v^dag * M*v    
-    evals_[i] = cDotProduct(psi3, psi2_cpy);
-    
-    Complex unit(1.0,0.0);
-    Complex m_lambda(-real(evals_[i]),
-		     -imag(evals_[i]));
-    
-    // d_v = ||M*v - lambda*v||
-    caxpby(unit, psi2_cpy, m_lambda, psi3, psi1_cpy);
-
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++) {
-	//cout << psi2_cpy[x][y] << " " << -m_lambda*psi3[x][y] << " " << psi1_cpy[x][y] << endl;
-      }
-    
-    double L2norm = norm2(psi1_cpy);    
-    printf("Eval[%04d] = %+e  %+e  Residual: %+e\n",
-	   i, real(evals_[i]), imag(evals_[i]), sqrt(L2norm));
-    
-    
-  }
-  //exit(0);
-  t1 += clock();
-  printf("Eigenvalues of Dirac operator computed in: %f sec\n",
-	 t1/CLOCKS_PER_SEC);
-  
-  // cleanup 
-  free(ipntr_);
-  free(iparam_);
-  free(mod_evals_sorted);
-  free(evals_sorted_idx);
-  free(resid_);
-  free(w_workd_);
-  free(w_workl_);
-  free(w_workev_);
-  free(w_rwork_);
-  free(select_);
-  free(spectrum);
-  
-  return;  
-}  
-#endif
