@@ -52,8 +52,6 @@ typedef complex<double> Complex;
 
 typedef struct{
   
-  int Latsize;
-
   //HMC
   int nstep;
   double dt;
@@ -66,6 +64,7 @@ typedef struct{
   double eps;
   
   //physics
+  int Latsize;
   double beta;
   double m;
   bool quenched;
@@ -127,7 +126,6 @@ double expdHAve = 0.0;
 int main(int argc, char **argv) {
 
   param_t p;
-
   p.Latsize = L;
   
   p.beta = atof(argv[1]); 
@@ -156,8 +154,8 @@ int main(int argc, char **argv) {
   p.eps = atof(argv[15]);
   
   //Arpack params
-  p.nEv = atoi(argv[16]);
-  p.nKv = atoi(argv[17]);
+  p.nKv = atoi(argv[16]);
+  p.nEv = atoi(argv[17]);
   p.arpackTol = atof(argv[18]);
   p.arpackMaxiter = atoi(argv[19]);
 
@@ -179,8 +177,13 @@ int main(int argc, char **argv) {
   double phase[L][L][D], initPhase[L][L][D];
   Complex avW[L][L], avWc[L][L];
   Complex guess[L][L];
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++) guess[x][y] = I;
+  Complex guessDUM[L][L];
+  for(int x=0; x<L;x++)
+    for(int y=0; y<L;y++) guess[x][y] = I;
+
+  int icount1 = 0;
+  int icount2 = 0;
+  int icount3 = 0;
   
   int histL = 101;
   int histQ[histL];
@@ -265,6 +268,7 @@ int main(int argc, char **argv) {
 
 	//Info dumped to stdout
 	cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
+	cout << accept << " ";                              //Acceptance of last HMC
 	cout << time/CLOCKS_PER_SEC << " ";                 //Time
 	cout << plaqSum/count << " ";                       //Action
 	cout << (double)top_stuck/(count*p.skip) << " ";    //P(stuck)
@@ -297,9 +301,16 @@ int main(int argc, char **argv) {
 	}
 
 #ifdef USE_ARPACK
-	arpack_solve_double(gauge, p, guess);
+	if(accept == 1) {
+	  icount1 += arpack_solve_double(gauge, p, guess, 1);
+	  for(int x =0;x< L;x++)
+	    for(int y =0;y< L;y++) guessDUM[x][y] = I;
+	  icount2 += arpack_solve_double(gauge, p, guessDUM, 1);
+	  icount3 += arpack_solve_double(gauge, p, guessDUM, 0);
+	  printf("guess = %f, I = %f, rand = %f\n", (1.0*icount1)/count, (1.0*icount2)/count, (1.0*icount3)/count);
+	}
 #endif
-	
+	/*	
 	for(int a=0; a<L/2; a++) polyakov[a] = 0.0;
 	polyakovLoops(gauge, polyakov);
 	
@@ -365,7 +376,7 @@ int main(int argc, char **argv) {
 	fp = fopen(fname, "w");
 	for(int i=0; i<histL; i++) fprintf(fp, "%d %d\n", i - (histL-1)/2, histQ[i]);
 	fclose(fp);
-	
+	*/
       }
     }
   }

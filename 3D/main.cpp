@@ -85,7 +85,6 @@ typedef struct{
 
 } param_t;
 
-void printParams(param_t p);
 void printLattice(Complex gauge[L][L][D]);
 void constructName(string &name, param_t p);
 void writeGaugeLattice(Complex gauge[L][L][LZ][D], string name);
@@ -107,188 +106,14 @@ void forceV(double (&fV)[L][L][LZ][D], double (&mom)[L][L][LZ][D],
 	    Complex (&gauge)[L][L][LZ][D], param_t p);
 void forceD(double fV[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], param_t p);
 void TestCG(Complex gauge[L][L][D], param_t p);
-
-void checkGauge(Complex gauge[L][L][LZ][D], Complex gaugeAlt[L][L][LZ][D], int n);
-
 void gaussComplex_F(Complex eta[L][L], double w, param_t p);
 
-// Blas tools
-double norm2(Complex psi[L][L]);
-Complex cDotProduct(Complex psi1[L][L], Complex psi2[L][L]);
-void caxpby(Complex a, Complex X[L][L], Complex b,
-	    Complex Y[L][L], Complex result[L][L]);
+#include "linAlgHelpers.h"
+#include "dOpHelpers.h"
 
-// Fermion utils
-// Dslash + m
-void Dpsi(Complex psi2[L][L], Complex psi1[L][L], Complex gauge[L][L][D], param_t p );
-
-// Dslash + m
-void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L],
-	     Complex gauge[L][L][D], param_t p );
-
-// gamma_5
-void gamma_5(Complex psi2[L][L], Complex psi1[L][L], param_t p );
-
-// gamma_5 (Dslash + m) gamma_5 (Dslash + m)
-void DdagDpsi(Complex psi2[L][L], Complex psi1[L][L],
-	      Complex gauge[L][L][D], param_t p );
-
-int Ainv_psi(Complex psi[L][L], Complex b[L][L], Complex psi0[L][L],
-	     Complex gauge[L][L][D], param_t p);
-
-
-// Zero lattice vectors.
-template<typename T> inline void zeroLat(T v[L][L][LZ][D]) {
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int z=0; z<LZ; z++)
-	for(int mu=0; mu<D; mu++)
-	  v[x][y][z][mu] = 0.0;
-}
-
-// Zero lattice vectors.
-template<typename T> inline void zeroLat2D(T v[L][L][D]) {
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int mu=0; mu<D; mu++)
-	v[x][y][mu] = 0.0;
-}
-
-
-// Copy lattice vector
-template<typename T> inline void copyLat(T v2[L][L][LZ][D],T v1[L][L][LZ][D]) {
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int z=0; z<LZ; z++)
-	for(int mu=0;mu<D;mu++)
-	  v2[x][y][z][mu] =  v1[x][y][z][mu];
-}
-
-// Copy lattice vector
-template<typename T> inline void copyLat2D(T v2[L][L][2],T v1[L][L][2]) {
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int mu=0; mu<2; mu++)
-	v2[x][y][mu] = v1[x][y][mu];
-}
-
-// Extract 2D slice
-template<typename T> inline void extractLatSlice(T gauge[L][L][LZ][D],
-						 T gauge2D[L][L][D],
-						 int slice) {
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int mu=0;mu<D;mu++)
-	gauge2D[x][y][mu] =  gauge[x][y][slice][mu];
-}
-
-
-// Insert 2D slice
-template<typename T> inline void insertLatSlice(T gauge[L][L][LZ][D],
-						T gauge2D[L][L][D],
-						int slice) {
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int mu=0;mu<D;mu++)
-	gauge[x][y][slice][mu] = gauge2D[x][y][mu];
-}
-
-
-// Copy lattice field
-template<typename T> inline void copyField(T psi2[L][L][LZ], T psi1[L][L][LZ]) {
-
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int z=0; z<LZ; z++)
-	psi2[x][y][z] = psi1[x][y][z];
-}
-
-// Copy lattice field
-template<typename T> inline void copyField2D(T psi2[L][L],T psi1[L][L]) {
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi2[x][y] =  psi1[x][y];
-}
-
-
-// Zero lattice field.
-template<typename T> inline void zeroField(T psi[L][L][LZ]) {
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int z=0; z<LZ; z++) {
-	psi[x][y][z] = 0.0;
-      }
-}
-
-// Zero lattice field.
-template<typename T> inline void zeroField2D(T psi[L][L]) {
-
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      psi[x][y] = 0.0;
-}
-
-
-// Add Equ conj(v2) dot v1 lattice field
-template<typename T> inline T dotField2D(T psi1[L][L], T psi2[L][L]) {
-  T scalar = (T) 0.0;
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      scalar += conj(psi1[x][y])*psi2[x][y];
-  return scalar;
-}
-
-void printParams(param_t p) {
-  cout << endl;
-  cout << "Physics:  Size = "<< L << endl;
-  cout << "          Beta = "<< p.beta << endl;
-  cout << "          BetaZ = "<< p.betaz << endl;
-  cout << "          Quenching = " << (p.quenched == true ? "True" : "False") << endl;
-  cout << "          Z locked = " << (p.lockedZ == true ? "True" : "False") << endl;
-  if (!p.quenched) cout << "         Mass = "<< p.m << endl;
-  cout << "HMC:      Therm Sweeps = " << p.therm << endl; 
-  cout << "          Data Points = " << p.iterHMC - p.therm << endl;
-  cout << "          Time Step = " << p.dt << endl;
-  cout << "          Trajectory Steps " << p.nstep << endl;
-  cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
-  cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
-  cout << "Smearing: APE iter = " << p.smearIter << endl;
-  cout << "          APE alpha = " << p.alpha << endl;
-}
-
-void constructName(string &name, param_t p) {
-  name += "_L" + to_string(p.Latsize) + "_LZ" + to_string(LZ) + "_B" + to_string(p.beta);
-  if(p.quenched == false) name += "_M"+ to_string(p.m);
-  name += "_dt" + to_string(p.dt) + "_nHMCstep" + to_string(p.nstep);
-}
-
-void checkGauge(Complex gauge[L][L][LZ][D], Complex gaugeAlt[L][L][LZ][D], int n) {
-
-#ifdef CHECK_GAUGE
-  bool fail = false;
-  
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int z=0; z<LZ; z++)
-	for(int mu=0; mu<D; mu++)
-	  if(gauge[x][y][z][mu] != gaugeAlt[x][y][z][mu]) {
-	    cout << "Gauge Check fail at " << x << " " << y << " " << z << " " << mu << " from call " << n << endl;
-	    fail = true;
-	  }
-  
-  if(fail) {
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++)
-	for(int z=0; z<LZ; z++)
-	  for(int mu=0; mu<D; mu++) {
-	    if(gauge[x][y][z][mu] != gaugeAlt[x][y][z][mu]) {
-	      cout << "Gauge compare " << x << " " << y << " " << z << " " << mu << gauge[x][y][z][mu] << " " <<  gaugeAlt[x][y][z][mu] << endl;
-	    }
-	  }
-    exit(0);
-  }
+#ifdef USE_ARPACK
+#include "arpack_interface.h"
 #endif
-}
 
 double expdHave = 0.0;
 int counthmc = 0;
@@ -305,33 +130,41 @@ int main(int argc, char **argv) {
   p.therm = atoi(argv[4]);
   p.skip = atoi(argv[5]);
   p.chkpt = atoi(argv[6]);
-  p.checkpointStart = atoi(argv[7]);
+  p.checkpointStart = atoi(argv[7]);  
   if(p.checkpointStart > 0) p.iterHMC += p.checkpointStart;
-
-  p.Latsize = L;
-  p.nstep = 200;
-  p.dt = 0.005;
-  p.quenched = false;
-  p.lockedZ = true;
- 
-  p.maxIterCG = 1000;
-  p.m = 0.032;
-  p.eps = 1E-6;
-
-  p.smearIter = atoi(argv[8]);
-  p.alpha = atof(argv[9]);
-
-  long iseed = (long)atoi(argv[10]);
+  p.nstep = atoi(argv[8]);
+  p.dt = atof(argv[9]);
   
-  int procs, threads;
-#ifdef USE_OMP
-  procs = omp_get_num_procs();
-  threads = omp_get_max_threads();
+  p.smearIter = atoi(argv[10]);
+  p.alpha = atof(argv[11]);  
+  long iseed = (long)atoi(argv[12]);
+
+  if(atoi(argv[13]) != 0) 
+    p.quenched = false;
+  else
+    p.quenched = true;
+
+  if(atoi(argv[14]) != 0)
+    p.lockedZ = true;
+  else
+    p.lockedZ = true;
   
-  cout << "Number of processors available = " << omp_get_num_procs ( ) << endl;
-  cout << "Number of threads =              " << omp_get_max_threads ( ) << endl;
+  p.m = atof(argv[15]);
+  
+  p.maxIterCG = atoi(argv[16]);
+  p.eps = atof(argv[17]);
+  
+  //Arpack params
+  p.nKv = atoi(argv[18]);
+  p.nEv = atoi(argv[19]);
+  p.arpackTol = atof(argv[20]);
+  p.arpackMaxiter = atoi(argv[21]);
+
+  int threads = atoi(argv[22]);
+
+#ifdef USE_OMP  
+  cout << "Number of threads = " << threads << endl;
 #else
-  procs = 1;
   threads = 1;
 #endif
 
@@ -357,7 +190,8 @@ int main(int argc, char **argv) {
 
   double area[L], sigma[L/2][LZ];
   Complex polyakov[L/2][LZ];
-  Complex gauge[L][L][LZ][D];  
+  Complex gauge[L][L][LZ][D];
+  Complex gauge2D[L][L][D];  
   Complex avWc[L][L][LZ];
   for(int a=0; a<LZ; a++) 
     for(int i=0; i<L/2; i++) {
@@ -367,6 +201,10 @@ int main(int argc, char **argv) {
 	avWc[i][j][a] = Complex(0.0,0.0);
       }
     }
+
+  Complex ARPACKguess[L][L];
+  for(int x=0; x<L;x++)
+    for(int y=0; y<L;y++) ARPACKguess[x][y] = I;
   
   string name;
   double elapsed = 0.0;
@@ -442,7 +280,9 @@ int main(int argc, char **argv) {
 	cout << plaqSum[(LZ-1)/2]/count << " ";
 	cout << (double)top_stuck[(LZ-1)/2]/(count*p.skip) << " ";
 	cout << expdHave/counthmc << " ";
-	cout << (double)accepted/(count*p.skip) << endl;
+	cout << (double)accepted/(count*p.skip) << " ";
+	for(int z=0; z<LZ; z++) cout << top_int[z] << " ";
+	cout << endl;
 	
 	//Dump to file
 	name = "data";
@@ -466,9 +306,11 @@ int main(int argc, char **argv) {
 	  name += "_traj" + to_string(iter+1) + ".dat";	
 	  writeGaugeLattice(gauge,name);
 	}
-      
-	//arpack_solve_double(gauge, p, guess);
-	//exit(0);
+
+#ifdef USE_ARPACK
+	extractLatSlice(gauge, gauge2D, LZ/2 + 1);	
+	arpack_solve_double(gauge2D, p, ARPACKguess, 1);
+#endif
       
 	for(int z=0; z<LZ; z++) 
 	  for(int i=0; i<L/2; i++)  polyakov[i][z] = 0.0;	
@@ -734,7 +576,7 @@ int hmc(Complex (&gauge)[L][L][LZ][D], param_t p, int iter) {
   if(!p.quenched) {
     rmsq = 0.5;
     gaussComplex_F(eta, rmsq, p);  //  chi[L][L]
-    extractLatSlice(gauge, gauge2D, 2);
+    extractLatSlice(gauge, gauge2D, LZ/2 + 1);
     Dpsi(chi, eta, gauge2D, p);
     
     for(int x = 0;x< L;x++)  //Masks out odd sites.
@@ -846,13 +688,19 @@ double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L]
 	}
 	
 	for(int mu=0; mu<D; mu++){
+	  
 	  Hmom += mom[x][y][z][mu]*mom[x][y][z][mu]/2.0;
+	  
+	  // We do not want the spurious extra dim momentum terms on
+	  // the last slice.
+	  if(z == LZ-1 && mu == D-1) {
+	    //Hmom -= mom[x][y][z][mu]*mom[x][y][z][mu]/2.0;
+	  }
 	}
       }
   
-  
   if(!p.quenched) {
-    extractLatSlice(gauge, gauge2D, 2);
+    extractLatSlice(gauge, gauge2D, LZ/2 + 1);
     // cout << "Before Fermion force H = " << H << endl;
     Complex scalar = Complex(0.0,0.0);
     zeroField2D(chitmp);
@@ -865,8 +713,7 @@ double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L]
     //H +=  real(dotField(chi,chitmp));
     Hferm += real(scalar);
     //cout << "After Fermion Force H  = " << H << endl;
-  }
-  
+  }  
   
   return Hgauge + Hmom + Hferm;
 }
@@ -906,7 +753,7 @@ void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D],
 	      mom[x][y][z][mu] += (fV[x][y][z][mu])*p.dt;
     }
     else {
-      extractLatSlice(gauge, gauge2D, 2);
+      extractLatSlice(gauge, gauge2D, LZ/2 + 1);
       forceD(fD, gauge2D, chi, p);
       
       for(int z=0; z<LZ; z++) {
@@ -1165,196 +1012,4 @@ void polyakovLoops(Complex  gauge[L][L][LZ][D], Complex polyakov[L/2][LZ]){
   }
   return;
 }
-
-
-/*
-  For a 2D square lattice, the stencil is:
-
-  psi2[x] = D_xy psi_y = m psi_x delta_xy 
-  - eta_mu(x) [U(x,x+mu) psi[x+mu] - U*(x-mu,x) psi[x-mu]]
-
-  The even/odd anti-hermiticity             
-
-  eta_mu(x) [U(x,y)\deta_x+mu,y - U(y,x) delta_y+mu,
- 
-  1 |  0 -eta1  0 |
-  - | +1    0  -1 |  , where eta0 = 1, eta1 = (-)^x = 1 - 2*(x%2)
-  2 |  0 +eta1  0 |
-
-*/
-
-void Dpsi(Complex psi2[L][L], Complex psi1[L][L], Complex gauge[L][L][D], param_t p ){
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++){
-      psi2[x][y] = p.m*psi1[x][y];
-      // cout<<"psi1[x,y] = ["<< x <<","<<y <<" ]  "<< psi1[x][y] << endl;
-      // cout<<"Dpsi2[x,y] = ["<< x <<","<<y <<" ]  "<< psi2[x][y] << endl <<endl;
-    }
-  
-  double eta1;
-  for(int x=0; x<L; x++) {
-    eta1 =(1 - 2*(x%2));
-    for(int y=0; y<L; y++) {      
-      psi2[x][y] += - (gauge[x][y][0] * psi1[(x+1)%L][y] - conj(gauge[ (x-1+L)%L ][y][0]) * psi1[ (x-1+L)%L ][y]);
-      psi2[x][y] += - eta1*(gauge[x][y][1]*psi1[x][ (y+1)%L ] - conj(gauge[x][ (y-1+L)%L ][1])*psi1[x][ (y-1+L)%L ]);
-      // cout<<"Dpsi2[x,y] = ["<< x <<","<<y <<" ]  "<< psi2[x][y] << endl <<endl;
-    }
-  }
-}
-
-void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p ) {
-  
-  // For a 2D square lattice, the stencil is:
-  //   1 |  0 -eta1  0 |
-  //   - | +1    0  -1 |  , where eta0 = 1, eta1 = (-)^x = 1 - 2(x%L)
-  //   2 |  0 +eta1  0 |
-
-  //#pragma omp parallel for
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi2[x][y] = p.m*psi1[x][y];
-  
-  double eta1;
-  for(int x=0; x<L; x++) {
-    eta1 =(1 - 2*(x%2));
-    for(int y=0; y<L; y++) {   
-      psi2[x][y] += (gauge[x][y][0] * psi1[(x+1)%L][y] - conj(gauge[(x-1 +L)%L][y][0]) * psi1[(x-1 + L)%L][y]);
-      psi2[x][y] += eta1*(gauge[x][y][1]*psi1[x][(y+1)%L] - conj(gauge[x][(y-1+L)%L][1])*psi1[x][(y-1+L)%L]);
-    }
-  }
-}
-
-//=======================//
-// Note: Ddag D = D Ddag //
-///======================//
-
-void DdagDpsi(Complex psi2[L][L], Complex  psi1[L][L], Complex gauge[L][L][D], param_t p ) {
-  
-  Complex psitmp[L][L];
-  zeroField2D(psitmp);
-  Dpsi(psitmp, psi1, gauge, p);
-  Ddagpsi(psi2, psitmp, gauge, p);
-}
-
-/*===================== 
-  CG solutions to Apsi = b 
-  see http://en.wikipedia.org/wiki/Conjugate_gradient_method
-  ======================*/
-
-int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gauge[L][L][D], param_t p) {
-  Complex res[L][L] , pvec[L][L], Apvec[L][L];
-  double alpha, beta, denom ;
-  double rsq = 0, rsqNew = 0, truersq=0.0, bsqrt = 0.0;
-  
-  //Intialize  
-  zeroField2D(res);
-  zeroField2D(Apvec);
-  zeroField2D(pvec);
-  
-  // Find norm of rhs.
-  bsqrt =  real(dotField2D(b,b));
-  bsqrt = sqrt(bsqrt);
-  
-  copyField2D(res,b); // res = b  - A psi0, for now start with phi0 = 0
-  copyField2D(pvec, res);
-
-  rsq =  real(dotField2D(res,res));
-  
-  // cout << "# Enter Ainv_p  bsqrt =  " << bsqrt << "  rsq   = " << rsq << endl;
-  
-  // Compute Ap.
-  DdagDpsi(Apvec, pvec, gauge,p);
-  
-  // iterate till convergence
-  int k;
-  int success = 0;
-  for(k = 0; k< p.maxIterCG; k++) {
-    
-    denom = real(dotField2D(pvec,Apvec));
-    alpha = rsq/denom;
-    
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++) {
-	psi[x][y] +=  alpha * pvec[x][y];
-	res[x][y] += - alpha*Apvec[x][y];
-      }
-    
-    // Exit if new residual is small enough
-    rsqNew = real(dotField2D(res,res));
-    //   cout << "k = "<< k <<"   rsqNew = " << rsqNew << endl; 
-    
-    if (sqrt(rsqNew) < p.eps*bsqrt) {
-      //    	printf("Final rsq = %g\n", rsqNew);
-      break;
-    }
-    
-    // Update vec using new residual
-    beta = rsqNew / rsq;
-    rsq = rsqNew;
-    
-    for(int x =0;x<L;x++)
-      for(int y =0;y<L;y++)
-	pvec[x][y] = res[x][y] + beta * pvec[x][y];
-    
-    // Compute the new Ap.
-    DdagDpsi(Apvec, pvec, gauge,p);  
-  }
-  //End loop over k
-  
-  
-  if(k == p.maxIterCG) {
-    printf("CG: Failed to converge iter = %d, rsq = %e\n", k,rsq); 
-    success = 0; // Failed convergence 
-  }
-  else {
-    success = 1; // Convergence 
-    k++;
-  }
-
-  DdagDpsi(Apvec,  psi, gauge,p);
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      res[x][y] = b[x][y] - Apvec[x][y];
-  
-  //truersq =  real(dotField2D(res,res));
-  //printf("CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,rsq,truersq);
-  return success;
-}
-
-void TestCG(Complex gauge[L][L][D], param_t p) {
-  
-  Complex b[L][L];
-  double rmsq = 0.5;
-  gaussComplex_F(b,rmsq,p);
-  Complex psi1[L][L];
-  Complex psi2[L][L];
-  zeroField2D(psi1);
-  zeroField2D(psi2);
-
-  Ainv_psi(psi1,b,psi1, gauge,p);
-  DdagDpsi(psi2, psi1, gauge,p);
-  for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-      cout<<" (x,y) = ("<< x <<","<<y<<") psi1 = " << psi1[x][y]
-	  << "  b[x][y] =  " <<  b[x][y] << " psi2[x][y] = "<<  psi2[x][y] << endl;
-    
-  /*
-    for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-    cout<<" (x,y) = ("<< x <<","<<y<<") " << psi[x][y] << endl;
-    DdagDpsi(psi, b, gauge,p);
-
-    for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-    cout<<" (x,y) = ("<< x <<","<<y<<") " << psi[x][y] << endl;
-   
-  
-    Ainv_psi(psi,b,psi, gauge,p);
-    for(int x = 0;x < L;x++)
-    for(int y=0;y<L;y++)
-    cout<< " (x,y) = ("<< x <<","<<y<<") "<< psi[x][y] << endl;
-  */
-
-}
-
 

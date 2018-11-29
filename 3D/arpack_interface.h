@@ -420,13 +420,13 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   iparam_[2]  = max_iter;
   iparam_[3]  = 1;
   iparam_[6]  = 1;
-  //iparam_[7]  = 1;
+  iparam_[7]  = 1;
   
   //ARPACK problem type to be solved
   char howmny='P';
   char bmat = 'I';
   char *spectrum;
-  spectrum = strdup("LR"); //Initialsed just to stop the compiler warning...
+  spectrum = strdup("SR"); //Initialsed just to stop the compiler warning...
   
   int iter_cnt= 0;
 
@@ -492,14 +492,14 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
     
     t1 += clock();
     time += t1;
-    //if(iter_cnt % 100 == 0) printf("Arpack Iteration: %d (%e secs)\n", iter_cnt, time/CLOCKS_PER_SEC);
+    if(iter_cnt % 100 == 0) printf("Arpack Iteration: %d (%e secs)\n", iter_cnt, time/CLOCKS_PER_SEC);
     iter_cnt++;
     
   } while (99 != ido_ && iter_cnt < max_iter);
   
   //Subspace calulated sucessfully. Compute nEv eigenvectors and values   
   printf("Finished in %e secs: iter=%04d  info=%d  ido=%d\n", time/CLOCKS_PER_SEC, iter_cnt, info_, ido_);      
-  //printf("Computing eigenvectors\n");
+  printf("Computing eigenvectors\n");
   
   //Interface to arpack routines
   //----------------------------
@@ -521,13 +521,13 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   int nconv = iparam_[4];
   for(int j=0; j<nconv; j++){
 
-    /*
+    
     printf("RitzValue[%04d]  %+e  %+e  %+e  error= %+e \n",j,
 	   real(evals_[j]),
 	   imag(evals_[j]),
 	   std::abs(evals_[j]),
 	   std::abs(*(w_workl_ + ipntr_[10]-1+j)));
-    */
+    
     evals_sorted_idx[j] = j;
     mod_evals_sorted[j] = std::abs(evals_[j]);
   }
@@ -538,18 +538,16 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   t1 +=  clock();
   
   //Print sorted evals
-  //printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
-  //printf("Sorted eigenvalues based on their absolute values:\n");
+  printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
+  printf("Sorted eigenvalues based on their absolute values:\n");
   
   
   for(int j=0; j<nconv; j++){
-    /*
     printf("RitzValue[%04d]  %+e  %+e  %+e  error = %+e \n",j,
 	   real(evals_[evals_sorted_idx[j]]),
 	   imag(evals_[evals_sorted_idx[j]]),
 	   std::abs(evals_[evals_sorted_idx[j]]),
 	   std::abs( *(w_workl_ + ipntr_[10] - 1 + evals_sorted_idx[j])) );
-    */
   }
   
   // Print additional convergence information.
@@ -571,7 +569,7 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
     for(int x=0; x<L; x++)
       for(int y=0; y<L; y++) {
 	psi3[x][y] = evecs[evals_sorted_idx[i]*L*L + L*y + x];
-	if(i==0) guess[x][y] = resid_[L*y + x];
+	if(i==0) guess[x][y] = I;
       }
     
     //apply matrix-vector operation here:
@@ -596,14 +594,14 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
       }
     
     double L2norm = norm2(psi1_cpy);    
-    //printf("Eval[%04d]: %+.16e %+.16e  %+.3e  Residual: %+.3e\n",
-    //i, real(evals_[i]), real(evals_[i]) - p.m*p.m, imag(evals_[i]), sqrt(L2norm));
+    printf("Eval[%04d]: %+.16e %+.16e  %+.3e  Residual: %+.3e\n",
+	   i, real(evals_[i]), real(evals_[i]) - p.m*p.m, imag(evals_[i]), sqrt(L2norm));
     
     
   }
   //exit(0);
   t1 += clock();
-  //printf("Eigenvalues of Dirac operator computed in: %f sec\n", t1/CLOCKS_PER_SEC);
+  printf("Eigenvalues of Dirac operator computed in: %f sec\n", t1/CLOCKS_PER_SEC);
   
   // cleanup 
   free(ipntr_);

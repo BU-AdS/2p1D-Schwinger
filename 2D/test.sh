@@ -6,7 +6,7 @@
 # if you wish to vary L.
 
 # The value of the coupling in the U(1) 2D theory
-BETA=1.0
+BETA=3.0
 
 # The total number of HMC iterations to perform.
 HMC_ITER=10000
@@ -24,7 +24,7 @@ HMC_NSTEP=100
 HMC_DT=0.01
 
 # Number of APE smearing hits to perfrom when measuring topology
-APE_ITER=0
+APE_ITER=2
 # The 'alpha' value in the APE smearing
 APE_ALPHA=0.5
 
@@ -35,7 +35,7 @@ RNG_SEED=1234
 DYN_QUENCH=1
 
 # Fermion mass
-MASS=0.032
+MASS=0.1
 
 # Maximum CG iterations
 MAX_CG_ITER=1000
@@ -47,14 +47,14 @@ CG_EPS=1e-6
 # Krylov space size
 NKV=32
 # Requested converged eigenpairs
-NEV=16
+NEV=8
 # Tolerance on the residual
-TOL=1e-6
+TOL=1e-12
 # Maximum ARPACK iterations
 ARPACK_MAXITER=1000000
 
 # OMP therads
-THREADS=4
+THREADS=1
 
 ./u1 $BETA $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP \
      $HMC_DT $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $MASS $MAX_CG_ITER $CG_EPS \

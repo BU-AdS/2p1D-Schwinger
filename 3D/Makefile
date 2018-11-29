@@ -3,7 +3,7 @@ ARPACK=/usr/local/Cellar/arpack/3.6.2
 OMP=/usr/local/opt/libomp
 
 ARPACK_LIB= -L${ARPACK}/lib/ -larpack
-#ARPACK_FLAGS= -DUSE_ARPACK -I${ARPACK}/libexec/include/arpack ${ARPACK_LIB}
+ARPACK_FLAGS= -DUSE_ARPACK -I${ARPACK}/libexec/include/arpack ${ARPACK_LIB}
 
 OMP_LIB = -L${OMP}/lib/ -lomp
 OMP_FLAGS += -DUSE_OMP -I${OMP}/include -Xpreprocessor -fopenmp ${OMP_LIB}
@@ -14,7 +14,7 @@ TARGET = u1
 
 SOURCES = main.cpp ran2s.cpp rangs.cpp 
 OBJS    = main.o ran2s.o rangs.o 
-INCLUDES = ran2s.h 
+INCLUDES = ran2s.h arpack_interface.h linAlgHelpers.h dOpHelpers.h
 
 ERRS=-Wall
 

@@ -1,13 +1,11 @@
 #ifndef DOPHELPERS_H
 #define DOPHELPERS_H
 
-
-
 /*
   For a 2D square lattice, the stencil is:
 
-  psi2[x] = D_xy psi_y = m psi_x delta_xy 
-  - eta_mu(x) [U(x,x+mu) psi[x+mu] - U*(x-mu,x) psi[x-mu]]
+  psi2[x] = D_xy psi_y = 
+  m psi_x delta_xy - eta_mu(x) [U(x,x+mu) psi[x+mu] - U*(x-mu,x) psi[x-mu]]
 
   The even/odd anti-hermiticity             
 
@@ -51,6 +49,7 @@ void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L],
   //   - | +1    0  -1 |  , where eta0 = 1, eta1 = (-)^x = 1 - 2(x%L)
   //   2 |  0 +eta1  0 |
 
+  //#pragma omp parallel for
   for(int x =0;x< L;x++)
     for(int y =0;y< L;y++)
       psi2[x][y] = p.m*psi1[x][y];
@@ -58,7 +57,8 @@ void Ddagpsi(Complex psi2[L][L], Complex  psi1[L][L],
   double eta1;
   for(int x=0; x<L; x++) {
     eta1 =(1 - 2*(x%2));    
-    for(int y=0; y<L; y++) {      
+    for(int y=0; y<L; y++) {
+      
       psi2[x][y] += (gauge[x][y][0] * psi1[(x+1)%L][y]
 		     - conj(gauge[(x-1 +L)%L][y][0]) * psi1[(x-1 + L)%L][y]);
 
@@ -76,7 +76,7 @@ void DdagDpsi(Complex psi2[L][L], Complex  psi1[L][L],
 	      Complex gauge[L][L][D], param_t p ) {
   
   Complex psitmp[L][L];
-  zeroField(psitmp);
+  zeroField2D(psitmp);
   Dpsi(psitmp, psi1, gauge, p);
   Ddagpsi(psi2, psitmp, gauge, p);
 }
@@ -92,18 +92,18 @@ int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gaug
   double rsq = 0, rsqNew = 0, truersq=0.0, bsqrt = 0.0;
   
   //Intialize  
-  zeroField(res);
-  zeroField(Apvec);
-  zeroField(pvec);
+  zeroField2D(res);
+  zeroField2D(Apvec);
+  zeroField2D(pvec);
   
   // Find norm of rhs.
-  bsqrt =  real(dotField(b,b));
+  bsqrt = real(dotField2D(b,b));
   bsqrt = sqrt(bsqrt);
   
-  copyField(res,b); // res = b  - A psi0, for now start with phi0 = 0
-  copyField(pvec, res);
+  copyField2D(res,b); // res = b  - A psi0, for now start with phi0 = 0
+  copyField2D(pvec, res);
 
-  rsq =  real(dotField(res,res));
+  rsq =  real(dotField2D(res,res));
   
   // cout << "# Enter Ainv_p  bsqrt =  " << bsqrt << "  rsq   = " << rsq << endl;
   
@@ -115,7 +115,7 @@ int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gaug
   int success = 0;
   for(k = 0; k< p.maxIterCG; k++) {
     
-    denom = real(dotField(pvec,Apvec));
+    denom = real(dotField2D(pvec,Apvec));
     alpha = rsq/denom;
     
     for(int x=0; x<L; x++)
@@ -125,7 +125,7 @@ int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gaug
       }
     
     // Exit if new residual is small enough
-    rsqNew = real(dotField(res,res));
+    rsqNew = real(dotField2D(res,res));
     //   cout << "k = "<< k <<"   rsqNew = " << rsqNew << endl; 
     
     if (sqrt(rsqNew) < p.eps*bsqrt) {
@@ -161,7 +161,7 @@ int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gaug
     for(int y=0; y<L; y++)
       res[x][y] = b[x][y] - Apvec[x][y];
   
-  //truersq =  real(dotField(res,res));
+  //truersq =  real(dotField2D(res,res));
   //printf("CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,rsq,truersq);
   return success;
 }
@@ -173,8 +173,8 @@ void TestCG(Complex gauge[L][L][D], param_t p) {
   gaussComplex_F(b,rmsq,p);
   Complex psi1[L][L];
   Complex psi2[L][L];
-  zeroField(psi1);
-  zeroField(psi2);
+  zeroField2D(psi1);
+  zeroField2D(psi2);
 
   Ainv_psi(psi1,b,psi1, gauge,p);
   DdagDpsi(psi2, psi1, gauge,p);

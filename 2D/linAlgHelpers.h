@@ -120,6 +120,12 @@ void printParams(param_t p) {
   cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
   cout << "Smearing: APE iter = " << p.smearIter << endl;
   cout << "          APE alpha = " << p.alpha << endl;
+#ifdef USE_ARPACK
+  cout << "ARPACK:   nkv = " << p.nKv << endl;
+  cout << "          nev = " << p.nEv << endl;
+  cout << "          tol = " << p.arpackTol << endl;
+  cout << "          maxiter = " << p.arpackMaxiter << endl;
+#endif  
 }
 
 void constructName(string &name, param_t p) {
