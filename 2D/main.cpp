@@ -159,14 +159,6 @@ int main(int argc, char **argv) {
   p.arpackTol = atof(argv[18]);
   p.arpackMaxiter = atoi(argv[19]);
 
-  int threads = atoi(argv[20]);
-
-#ifdef USE_OMP  
-  cout << "Number of threads = " << threads << endl;
-#else
-  threads = 1;
-#endif
-
   //Topology
   double top = 0.0;
   int top_int = 0;
@@ -174,8 +166,9 @@ int main(int argc, char **argv) {
   int top_stuck = 0;
   
   Complex gauge[L][L][D];
-  double phase[L][L][D], initPhase[L][L][D];
   Complex avW[L][L], avWc[L][L];
+
+#ifdef USE_ARPACK
   Complex guess[L][L];
   Complex guessDUM[L][L];
   for(int x=0; x<L;x++)
@@ -184,14 +177,15 @@ int main(int argc, char **argv) {
   int icount1 = 0;
   int icount2 = 0;
   int icount3 = 0;
+#endif
   
   int histL = 101;
   int histQ[histL];
   for(int i = 0; i < histL; i++) histQ[i] = 0;
   
-  double area[L], sigma[L];
+  //double sigma[L];
   Complex polyakov[L/2];
-  Complex polyakovAveTest(0.0,0.0);
+  //Complex polyakovAveTest(0.0,0.0);
   
   for(int x=0; x<L/2; x++) {
     polyakov[x] = 0.0;
@@ -206,7 +200,7 @@ int main(int argc, char **argv) {
   int index = 0;
   string name;
   fstream outPutFile;
-  double elapsed = 0.0;
+  //double elapsed = 0.0;
   
   int accept;
   int accepted = 0;
@@ -283,7 +277,7 @@ int main(int argc, char **argv) {
 	sprintf(fname, "%s", name.c_str());	
 	fp = fopen(fname, "a");
 	
-	fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e %d\n",
+	fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e\n",
 		iter+1,
 		time/CLOCKS_PER_SEC,
 		plaqSum/count,
@@ -413,7 +407,7 @@ int main(int argc, char **argv) {
   ================================================================================*/ 
 
 void phaseUpdate(double phase[L][L][D],param_t p){
-  Complex w = Complex(1.0,0.0);
+  //Complex w = Complex(1.0,0.0);
   double staple; 
 
   for(int x =0;x< L;x++)
@@ -474,7 +468,6 @@ void printLattice(Complex gauge[L][L][D]){
   ================================================================================*/ 
 void gaussStart(Complex gauge[L][L][D],param_t p){
 
-  //#pragma omp parallel for  
   for(int x =0;x< L;x++)
     for(int y =0;y< L;y++){
       gauge[x][y][0] = polar(1.0,sqrt(1.0/p.beta)*rang());
@@ -485,7 +478,6 @@ void gaussStart(Complex gauge[L][L][D],param_t p){
 
 void coldStart(Complex gauge[L][L][D],param_t p){
 
-  //#pragma omp parallel for
   for(int x =0;x< L;x++)
     for(int y =0;y< L;y++)
       for(int mu=0;mu<D;mu++)
@@ -687,8 +679,8 @@ void smearLink(Complex Smeared[L][L][D], Complex gauge[L][L][D], param_t p){
 
 int hmc(Complex gauge[L][L][D], param_t p, int iter) {
 
-  static int stop = 0;  
-  int i;
+  //static int stop = 0;  
+  //int i;
   int accept = 0;
   
   double mom[L][L][D];
@@ -745,7 +737,7 @@ int count0 = 0;
 void gaussReal_F(double field[L][L][D]) {
   //normalized gaussian exp[ - phi*phi/2]  <eta^2> = 1
   double r, theta;
-  double sum = 0.0;
+  //double sum = 0.0;
   for(int x=0; x<L;x++)
     for(int y= 0; y<L; y++){
       r = sqrt( -2.0*log(drand48()) );
@@ -763,7 +755,7 @@ void gaussReal_F(double field[L][L][D]) {
 
 void gaussComplex_F(Complex eta[L][L], double w, param_t p) {
   //normalized gaussian exp[ - eta*eta/2]  <eta^2> = 1;
-  int i;
+  //int i;
   double r, theta;
 
   for(int x =0;x< L;x++)
@@ -827,7 +819,7 @@ double calcH(double mom[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], par
 void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
 		Complex chi[L][L], param_t p) {
   
-  int i, step;
+  int step;
   double fV[L][L][D];
   double fD[L][L][D];
   
@@ -890,7 +882,6 @@ void forceV(double fV[L][L][D],Complex gauge[L][L][D], param_t p) {
   
   Complex plaq ;
   zeroLat<double>(fV);
-  //#pragma omp parallel for
   for(int x =0;x< L;x++)
     for(int y =0;y< L;y++) {
       
@@ -935,7 +926,6 @@ void forceD(double fD[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_
   Ainv_psi(chitmp, chi, chitmp, gauge, p); // note chitmp = 0 for ODD
   Dpsi(Dchitmp, chitmp, gauge, p); // restrict to Dslash, m = 0
 
-  //#pragma omp parallel for
   for(int x = 0; x< L;x++)
     for(int y = 0;y < L; y++){
       if((x + y)%2 ==1) chitmp[x][y] = Complex(0.0,0.0);

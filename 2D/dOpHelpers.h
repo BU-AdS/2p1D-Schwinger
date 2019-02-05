@@ -2,7 +2,6 @@
 #define DOPHELPERS_H
 
 
-
 /*
   For a 2D square lattice, the stencil is:
 
@@ -89,7 +88,7 @@ void DdagDpsi(Complex psi2[L][L], Complex  psi1[L][L],
 int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gauge[L][L][D], param_t p) {
   Complex res[L][L] , pvec[L][L], Apvec[L][L];
   double alpha, beta, denom ;
-  double rsq = 0, rsqNew = 0, truersq=0.0, bsqrt = 0.0;
+  double rsq = 0, rsqNew = 0, bsqrt = 0.0;
   
   //Intialize  
   zeroField(res);
@@ -161,7 +160,7 @@ int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gaug
     for(int y=0; y<L; y++)
       res[x][y] = b[x][y] - Apvec[x][y];
   
-  //truersq =  real(dotField(res,res));
+  //double truersq =  real(dotField(res,res));
   //printf("CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,rsq,truersq);
   return success;
 }

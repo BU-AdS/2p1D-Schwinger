@@ -595,7 +595,7 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
 	//cout << psi2_cpy[x][y] << " " << -m_lambda*psi3[x][y] << " " << psi1_cpy[x][y] << endl;
       }
     
-    double L2norm = norm2(psi1_cpy);    
+    //double L2norm = norm2(psi1_cpy);    
     //printf("Eval[%04d]: %+.16e %+.16e  %+.3e  Residual: %+.3e\n",
     //i, real(evals_[i]), real(evals_[i]) - p.m*p.m, imag(evals_[i]), sqrt(L2norm));
     
