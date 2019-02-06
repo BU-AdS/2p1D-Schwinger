@@ -19,9 +19,9 @@ HMC_CHKPT=1000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # Number of HMC steps in the integration 
-HMC_NSTEP=100
+HMC_NSTEP=200
 # Ficticious time step size
-HMC_DT=0.01
+HMC_DT=0.005
 
 # Number of APE smearing hits to perfrom when measuring topology
 APE_ITER=2
@@ -32,7 +32,7 @@ APE_ALPHA=0.5
 RNG_SEED=1234
 
 # DYNAMIC (1) or QUENCHED (0)
-DYN_QUENCH=1
+DYN_QUENCH=0
 
 # Fermion mass
 MASS=0.1
@@ -47,7 +47,7 @@ CG_EPS=1e-6
 # Krylov space size
 NKV=32
 # Requested converged eigenpairs
-NEV=8
+NEV=24
 # Tolerance on the residual
 TOL=1e-12
 # Maximum ARPACK iterations

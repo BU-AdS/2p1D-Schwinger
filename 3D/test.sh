@@ -6,12 +6,12 @@
 # if you wish to vary L or Lz
 
 # The value of the coupling in the x-, y-dimensions
-BETA=2.0
+BETA=4.0
 
 # The value of the coupling in the z-dimensions.
 # By construction, beta(Lz-1) = 0 to implement
 # open boundary conditions.
-BETAZ=2.0
+BETAZ=4.0
 
 # The total number of HMC iterations to perform.
 HMC_ITER=10000
@@ -24,9 +24,9 @@ HMC_CHKPT=1000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # Number of HMC steps in the integration 
-HMC_NSTEP=100
+HMC_NSTEP=200
 # Ficticious time step size
-HMC_DT=0.01
+HMC_DT=0.005
 
 # Number of APE smearing hits to perfrom when measuring topology
 APE_ITER=2
@@ -37,7 +37,7 @@ APE_ALPHA=0.5
 RNG_SEED=1234
 
 # DYNAMIC (1) or QUENCHED (0)
-DYN_QUENCH=1
+DYN_QUENCH=0
 
 # Lock the Z gauge to unit (1) or allow z dynamics (0)
 ZLOCKED=1
@@ -61,9 +61,6 @@ TOL=1e-12
 # Maximum ARPACK iterations
 ARPACK_MAXITER=1000000
 
-# OMP therads
-THREADS=1
-
 ./u1 $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP \
      $HMC_DT $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $ZLOCKED $MASS $MAX_CG_ITER $CG_EPS \
-     $NKV $NEV $TOL $ARPACK_MAXITER $THREADS
+     $NKV $NEV $TOL $ARPACK_MAXITER

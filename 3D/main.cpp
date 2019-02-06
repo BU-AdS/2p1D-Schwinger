@@ -160,14 +160,6 @@ int main(int argc, char **argv) {
   p.arpackTol = atof(argv[20]);
   p.arpackMaxiter = atoi(argv[21]);
 
-  int threads = atoi(argv[22]);
-
-#ifdef USE_OMP  
-  cout << "Number of threads = " << threads << endl;
-#else
-  threads = 1;
-#endif
-
   //Topology
   double top = 0.0;
   int histL = 101;
@@ -276,7 +268,7 @@ int main(int argc, char **argv) {
 	double time = time0 + clock();
       
 	cout << fixed << setprecision(16) << iter+1 << " ";
-	cout << time/(threads*CLOCKS_PER_SEC) << " ";
+	cout << time/(CLOCKS_PER_SEC) << " ";
 	cout << plaqSum[(LZ-1)/2]/count << " ";
 	cout << (double)top_stuck[(LZ-1)/2]/(count*p.skip) << " ";
 	cout << expdHave/counthmc << " ";
@@ -292,7 +284,7 @@ int main(int argc, char **argv) {
 	fp = fopen(fname, "a");
 	fprintf(fp, "%d %.15e %.15e %.15e %.15e %.15e\n",
 		iter+1,
-		time/(threads*CLOCKS_PER_SEC),
+		time/(CLOCKS_PER_SEC),
 		plaqSum[(LZ-1)/2]/count,
 		(double)top_stuck[(LZ-1)/2]/(count*p.skip),
 		expdHave/counthmc,

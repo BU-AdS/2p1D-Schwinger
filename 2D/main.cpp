@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
   int histQ[histL];
   for(int i = 0; i < histL; i++) histQ[i] = 0;
   
-  //double sigma[L];
+  double sigma[L];
   Complex polyakov[L/2];
   //Complex polyakovAveTest(0.0,0.0);
   
@@ -304,7 +304,6 @@ int main(int argc, char **argv) {
 	  printf("guess = %f, I = %f, rand = %f\n", (1.0*icount1)/count, (1.0*icount2)/count, (1.0*icount3)/count);
 	}
 #endif
-	/*	
 	for(int a=0; a<L/2; a++) polyakov[a] = 0.0;
 	polyakovLoops(gauge, polyakov);
 	
@@ -370,7 +369,7 @@ int main(int argc, char **argv) {
 	fp = fopen(fname, "w");
 	for(int i=0; i<histL; i++) fprintf(fp, "%d %d\n", i - (histL-1)/2, histQ[i]);
 	fclose(fp);
-	*/
+
       }
     }
   }
