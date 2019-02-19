@@ -233,8 +233,9 @@ void arpackErrorHelpNEUPD() {
   printf("        data was modified before entering ZNEUPD\n");
 }
 
-void chebyOp(Complex out[L][L], Complex in[L][L],
-	     Complex gauge[L][L][D], param_t p ) {
+/*
+  void chebyOp(Complex out[L][L][2], Complex in[L][L][2],
+  Complex gauge[L][L][D], param_t p ) {
   
   double delta,theta;
   double sigma,sigma1,sigma_old;
@@ -258,7 +259,7 @@ void chebyOp(Complex out[L][L], Complex in[L][L],
 
   DdagDpsi(out, in, gauge, p);   
   
-  axpby(d2, in, d1, out, out);
+  caxpby(d2, in, d1, out, out);
   
   ////C_1(x) = x
   //if(arpack_param->polyDeg == 1 )
@@ -281,27 +282,27 @@ void chebyOp(Complex out[L][L], Complex in[L][L],
   //construct C_{m+1}(x)
   for(int i=2; i<100; i++){
     
-    sigma = 1.0/(2.0/sigma1-sigma_old);
+  sigma = 1.0/(2.0/sigma1-sigma_old);
     
-    d1 = 2.0*sigma/delta;
-    d2 = -d1*theta;
-    d3 = -sigma*sigma_old;
+  d1 = 2.0*sigma/delta;
+  d2 = -d1*theta;
+  d3 = -sigma*sigma_old;
     
-    //mat*C_m
-    DdagDpsi(out, in, gauge, p);   
+  //mat*C_m
+  DdagDpsi(out, in, gauge, p);   
     
-    ax(d3,tmp1);
-    xpaypbz(tmp1,d2,tmp2,d1,out);
+  ax(d3,tmp1);
+  xpaypbz(tmp1,d2,tmp2,d1,out);
     
-    copyField(tmp1,tmp2);
-    copyField(tmp2,out);
-    sigma_old = sigma;
+  copyField(tmp1,tmp2);
+  copyField(tmp2,out);
+  sigma_old = sigma;
     
   }
-}
+  }
+*/
 
-
-int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], int infoGuess) {
+int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L][2], int infoGuess) {
   
   //Construct parameters and memory allocation
   //------------------------------------------
@@ -311,10 +312,10 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   int info_;
   int *ipntr_ = (int*)malloc(14*sizeof(int));
   int *iparam_ = (int*)malloc(11*sizeof(int));
-  int n_    = L*L,
+  int n_    = L*L*2,
     nev_    = p.nEv,
     nkv_    = p.nKv,
-    ldv_    = L*L,
+    ldv_    = L*L*2,
     lworkl_ = (3 * nkv_*nkv_ + 5*nkv_) * 2,
     rvec_   = 1;
   int max_iter = p.arpackMaxiter;
@@ -346,19 +347,20 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   double *w_rwork_  = (double *)malloc(nkv_*sizeof(double));    
   int *select_ = (int*)malloc(nkv_*sizeof(int));
   
-  std::complex<double> *evecs = (std::complex<double> *) malloc(nkv_*L*L*sizeof(std::complex<double>));
-  std::complex<double> *evals = (std::complex<double> *) malloc(nkv_    *sizeof(std::complex<double>));
+  std::complex<double> *evecs = (std::complex<double> *) malloc(nkv_*n_*sizeof(std::complex<double>));
+  std::complex<double> *evals = (std::complex<double> *) malloc(nkv_   *sizeof(std::complex<double>));
 
   for(int n=0; n<nkv_; n++) {
     evals[n] = Zero;
     for(int x=0; x<L; x++) {
       for(int y=0; y<L; y++) {
-	evecs[n*L*L + x*L + y] = Zero;
-	if(n==0) resid_[y*L + x] = guess[x][y];
+	for(int s=0; s<2; s++) {
+	  evecs[2*(n*L*L + y*L + x) + s] = Zero;
+	  if(n==0) resid_[2*(y*L + x) + s] = guess[x][y][s];
+	}
       }
     }
   }
-
   //for(int k=0; k<100; k++) cout << resid_[k] << " ";
   //cout << endl;
   
@@ -405,19 +407,21 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   Complex *psi1;
   Complex *psi2;
 
-  Complex psi1_cpy[L][L];
-  Complex psi2_cpy[L][L];
+  Complex psi1_cpy[L][L][2];
+  Complex psi2_cpy[L][L][2];
   
   for(int x=0; x<L; x++) {
     for(int y=0; y<L; y++) {
-      psi1_cpy[x][y] = Zero;
-      psi2_cpy[x][y] = Zero;
+      for(int s=0; s<2; s++) {
+	psi1_cpy[x][y][s] = Zero;
+	psi2_cpy[x][y][s] = Zero;
+      }
     }
   }
   
   psi1 = w_workd_;
-  psi2 = w_workd_ + L*L;
-
+  psi2 = w_workd_ + 2*L*L;
+  
   double t1;
   double time = 0.0;;
   do {
@@ -445,17 +449,21 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
       //Copy from Arpack workspace
       for(int y=0; y<L; y++) {
 	for(int x=0; x<L; x++) {
-	  psi1_cpy[x][y] = *(psi1 + x + y*L);
+	  for(int s=0; s<2; s++) {
+	    psi1_cpy[x][y][s] = *(psi1 + 2*(y*L + x) + s);
+	  }
 	}
       }
       //Apply matrix-vector operation
-      if(p.polyACC == 1) chebyOp(psi2_cpy, psi1_cpy, gauge, p);
-      else  DdagDpsi(psi2_cpy, psi1_cpy, gauge, p);
+      //if(p.polyACC == 1) chebyOp(psi2_cpy, psi1_cpy, gauge, p);
+      DdagDpsi(psi2_cpy, psi1_cpy, gauge, p);
       
       //Copy to Arpack workspace
       for(int y=0; y<L; y++) {
 	for(int x=0; x<L; x++) {
-	  *(psi2 + x + y*L) = psi2_cpy[x][y];
+	  for(int s=0; s<2; s++) {
+	    *(psi2 + 2*(y*L + x) + s) = psi2_cpy[x][y][s];
+	  }
 	}
       }
     }
@@ -473,7 +481,9 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   if(infoGuess == 1) {
     for(int x=0; x<L; x++) {
       for(int y=0; y<L; y++) {
-	guess[x][y] = resid_[y*L + x];
+	for(int s=0; s<2; s++) {
+	  guess[x][y][s] = resid_[2*(y*L + x) + s];
+	}
       }
     }
   }
@@ -504,6 +514,10 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   t1 =  -((double)clock());
   bool inverse = (p.polyACC == 1 ? false : true);
   sortAbs(mod_evals_sorted, nconv, inverse, evals_sorted_idx);
+  for(int i=0; i<nev_ ;i++) printf("Eval[%d] = (%.6f,%.6f)\n",
+				   i, evals_[i].real(), evals_[i].imag());    
+  
+  
   t1 +=  clock();
   
   printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
@@ -523,12 +537,13 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   
   //Print Evalues
   t1 = -(double)clock();
-  Complex psi3[L][L];
+  Complex psi3[L][L][2];
   
   for(int i=0; i<nev_ ;i++){    
     for(int x=0; x<L; x++)
       for(int y=0; y<L; y++) {
-	psi3[x][y] = evecs[evals_sorted_idx[i]*L*L + L*y + x];
+	for(int s=0; s<2; s++)
+	  psi3[x][y][s] = evecs[2*(evals_sorted_idx[i]*L*L + L*y + x) + s];
       }
     
     //apply matrix-vector operation here:
@@ -567,3 +582,4 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L], 
   
   return iter_cnt;  
 }  
+  

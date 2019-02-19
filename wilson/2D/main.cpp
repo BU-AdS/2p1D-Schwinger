@@ -1,35 +1,3 @@
-/* ================================================================================= 
-
-   Sat Jan 22 13:43:09 PST 2005 Richard Brower  
-   U(1) NON-COMPACT  Gauge Field for 2-d Quenched Lattice
-
-   This does Heat Bath on the phase angles for the non-compact action:
-
-   prob = Prod_{Plaquettes} = sqrt{PI/ beta} exp( - (beta/2)* (theta_Plaquette)^2 ]
-                         
-   The exact value of the average plaquette is
-
-   Compared with exact value at beta = 16:
-   - Log[Sqrt[begta/(2 Pi)] NIntegrate[2 Cos[x]*Exp[- beta*x^2/2],{x,0,Infinity}] = 1/32 =  0.03125
-
-   This is not relevant to the real problem but the code was also debugged by
-   running with purely Gussian links at beta = 16: 
-
-   sigma = Log[plaq]/4 = 0.0312485 (Simulation) Gausian Links 
-   sigma = Log[plaq]   = 0.0312285 (Simulation) Gausian Plaqs (Note factor of 4)
-
-   Wed Aug 17 10:02:02 EDT 2016 Richard Brower
-   U(1) COMPACT Full HMC for 2-d U(1)
-
-   Optimization:
-
-   Should introduce an ee CG for DdagD 
-   Should introduce an D_oe Dslash.
-
-   Check: Dslash, Inverters, Dforce.
-
-  ===================================================================================*/
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -41,13 +9,14 @@
 using namespace std;
 #include "ran2s.h"
 
-#define L 16
+#define L 8
 #define D 2
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
 
 typedef complex<double> Complex;
 #define I Complex(0,1)
+#define cUnit Complex(1,0)
 
 typedef struct{
   
@@ -103,16 +72,18 @@ void phaseUpdate(double phase[L][L][D],param_t p);
 double getTopCharge(Complex gauge[L][L][D], param_t p);
 void smearLink(Complex gaugeSmeared[L][L][D], Complex gauge[L][L][D], param_t p);
 void gaussReal_F(double field[L][L][D]);
-void gaussComplex_F(Complex eta[L][L], double w, param_t p);
+void gaussComplex_F(Complex eta[L][L][2], double w, param_t p);
 void MakeInstanton(Complex gauge[L][L][D], int Q, param_t p);
 void MakePointVortex(Complex gauge[L][L][D], int Q, int x0, int y0, param_t p);
 
 int hmc(Complex gauge[L][L][D], param_t p, int iter);
-double calcH(double mom[L][L][D], Complex gauge[L][L][D],Complex chi[L][L], param_t p);
+double calcH(double mom[L][L][D], Complex gauge[L][L][D],
+	     Complex chi[L][L][2], param_t p);
 void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
-		Complex chi[L][L], param_t p);
-void forceV(double fV[L][L][D], Complex gauge[L][L][D],param_t p);
-void forceD(double fV[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_t p);
+		Complex chi[L][L][2], param_t p);
+void forceV(double fV[L][L][D], Complex gauge[L][L][D], param_t p);
+void forceD(double fV[L][L][D],Complex gauge[L][L][D],
+	    Complex chi[L][L][2], param_t p);
 void DoPFlip(Complex gauge[L][L][D], param_t p);
 void TestForce(Complex gauge[L][L][D], param_t p);
 
@@ -173,14 +144,23 @@ int main(int argc, char **argv) {
   int top_stuck = 0;
   
   Complex gauge[L][L][D];
+  Complex gaugeFree[L][L][D];
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++) {
+      gaugeFree[L][L][0] = cUnit;
+      gaugeFree[L][L][1] = cUnit;
+    }
+  
   Complex avW[L][L], avWc[L/2][L/2];
 
 #ifdef USE_ARPACK
-  Complex guess[L][L];
-  Complex guessDUM[L][L];
-  for(int x=0; x<L;x++)
-    for(int y=0; y<L;y++) guess[x][y] = I;
-
+  Complex guess[L][L][2];
+  Complex guessDUM[L][L][2];
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++)
+	guess[x][y][s] = I;
+  
   int icount1 = 0;
   int icount2 = 0;
   int icount3 = 0;
@@ -302,16 +282,18 @@ int main(int argc, char **argv) {
 	}
 
 #ifdef USE_ARPACK
-	if(accept == 1) {
-	  icount1 += arpack_solve_double(gauge, p, guess, 1);
-	  for(int x =0;x< L;x++)
-	    for(int y =0;y< L;y++) guessDUM[x][y] = I;
-	  icount2 += arpack_solve_double(gauge, p, guessDUM, 1);
-	  icount3 += arpack_solve_double(gauge, p, guessDUM, 0);
-	  printf("guess = %f, I = %f, rand = %f\n", (1.0*icount1)/count, (1.0*icount2)/count, (1.0*icount3)/count);
-	}
+	//icount1 += arpack_solve_double(gauge, p, guess, 1);
+	for(int x=0; x<L; x++)
+	  for(int y=0; y<L; y++)
+	    for(int s=0; s<2; s++)
+	      guessDUM[x][y][s] = I;
+	
+	//icount2 += arpack_solve_double(gauge, p, guessDUM, 1);
+	//icount3 += arpack_solve_double(gauge, p, guessDUM, 0);
+	//printf("guess = %f, I = %f, rand = %f\n", (1.0*icount1)/count, (1.0*icount2)/count, (1.0*icount3)/count);
+	
 #endif
-
+	
 	//Compute gauge observables
 	
 	for(int a=0; a<L/2; a++) polyakov[a] = 0.0;
@@ -697,7 +679,7 @@ int hmc(Complex gauge[L][L][D], param_t p, int iter) {
   
   double mom[L][L][D];
   Complex gaugeOld[L][L][D];
-  Complex chi[L][L], eta[L][L];
+  Complex chi[L][L][2], eta[L][L][2];
   double H, Hold, rmsq;
 
   copyLat(gaugeOld,gauge);
@@ -715,9 +697,11 @@ int hmc(Complex gauge[L][L][D], param_t p, int iter) {
     gaussComplex_F(eta,rmsq,p);  //  chi[L][L]
     Dpsi(chi, eta, gauge, p);
     
-    for(int x = 0;x< L;x++)  //Masks out odd sites.
-      for(int y = 0;y< L;y++)
-	if((x + y)%2 == 1) chi[x][y] = 0.0;
+    for(int x=0; x<L; x++)  //Masks out odd sites.
+      for(int y=0; y<L; y++)
+	for(int s=0; s<2; s++) {
+	  if((x + y)%2 == 1) chi[x][y][s] = 0.0;
+	}
   }
   
   Hold = calcH(mom, gauge, chi, p);
@@ -749,38 +733,33 @@ int count0 = 0;
 void gaussReal_F(double field[L][L][D]) {
   //normalized gaussian exp[ - phi*phi/2]  <eta^2> = 1
   double r, theta;
-  //double sum = 0.0;
   for(int x=0; x<L;x++)
     for(int y= 0; y<L; y++){
       r = sqrt( -2.0*log(drand48()) );
       theta = TWO_PI*drand48();
       field[x][y][0] = r*cos(theta);
       field[x][y][1] = r*sin(theta);
-
-      //sum0 += (field[x][y][1]*field[x][y][1] + field[x][y][0]*field[x][y][0]);
     }
-  //count0++;
-  //cout << sum0 /(count0*L*L) << endl;
-
+  
   return;
 }
 
-void gaussComplex_F(Complex eta[L][L], double w, param_t p) {
+void gaussComplex_F(Complex eta[L][L][2], double w, param_t p) {
+  
   //normalized gaussian exp[ - eta*eta/2]  <eta^2> = 1;
-  //int i;
   double r, theta;
-
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      {
-	r = sqrt( - 2.0*w*log(drand48()) );
-	//	  r = sqrt( - 2.0*w*log((double)(rand())/RAND_MAX) );
+  double inv_sqrt2 = 1.0/sqrt(2);
+  
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++) {
+      for(int s=0; s<2; s++) {
+	r = sqrt(-2.0*w*log(drand48()));
 	theta   = TWO_PI*(double)(rand())/RAND_MAX;
-	eta[x][y] = Complex(r*cos(theta),r*sin(theta));      //eta[i] = cexp(theta*I);  works too!
-      };
-  return;
+	eta[x][y][s] = Complex(r*cos(theta),r*sin(theta))*inv_sqrt2;
+      }
+      return;
+    }
 }
-
 /*=================
   
   H(mom,theta) = \sum_i mom^2(i)/2 + V(theta_i)  
@@ -793,11 +772,13 @@ void gaussComplex_F(Complex eta[L][L], double w, param_t p) {
   
   ===============*/
 
-double calcH(double mom[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], param_t p)
-{
-  double H = 0.0;
+//Make Wilson
+double calcH(double mom[L][L][D], Complex gauge[L][L][D],
+	     Complex chi[L][L][2], param_t p) {
+
+  double H = 0.0;  
   Complex plaq;
-  Complex chitmp[L][L];
+  Complex chitmp[L][L][2];
  
   for(int x=0; x<L;x++)
     for(int y=0; y<L; y++){
@@ -810,34 +791,42 @@ double calcH(double mom[L][L][D], Complex gauge[L][L][D], Complex chi[L][L], par
       }
     }
  
-
+    
   if(!p.quenched) {
+    
     // cout << "Before Fermion force H = " << H << endl;
     Complex scalar = Complex(0.0,0.0);
     zeroField(chitmp);
-    Ainv_psi(chitmp,chi,chitmp, gauge,p);  
-    for(int x =0;x< L;x++)
-      for(int y =0;y< L;y++){
-	if((x+y)%2 ==0)
-	  scalar += conj(chi[x][y])*chitmp[x][y];
+    Ainv_psi(chitmp, chi,chitmp, gauge, p);  
+    for(int x=0; x<L; x++)
+      for(int y=0; y<L; y++){
+	if((x+y)%2 ==0) {
+	  for(int s=0; s<2; s++){
+	    scalar += conj(chi[x][y][s])*chitmp[x][y][s];
+	  }
+	}
       }
     //      H +=  real(dotField(chi,chitmp));
     H += real(scalar);
     //       cout << "After Fermion Force H  = " << H << endl;
+    
   }
   return H;
 }
 
 void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
-		Complex chi[L][L], param_t p) {
+		Complex chi[L][L][2], param_t p) {
 
-  Complex guess[L][L];
+  Complex guess[L][L][2];
   for(int x=0; x<L; x++)
-    for(int y =0; y<L; y++)
-      guess[x][y] = drand48();;
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++)
+	guess[x][y][s] = drand48();;
   
   int step;
+  //gauge
   double fV[L][L][D];
+  //fermion
   double fD[L][L][D];
   
   for(int x=0; x<L; x++)
@@ -868,7 +857,7 @@ void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
 	    mom[x][y][mu] += (fV[x][y][mu] + fD[x][y][mu])*p.dt;
     }
 #ifdef USE_ARPACK
-    int before = arpack_solve_double(gauge, p, guess, 1);
+    //int before = arpack_solve_double(gauge, p, guess, 1);
 #endif
     
   } //end for loop
@@ -880,24 +869,22 @@ void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
       }
 }
 
-/*==================== 
-  x+ = 0the dim
-  y+ = 1th dim
+  // x+ = 0the dim
+  // y+ = 1th dim
   
-  y+1<_______                              x-1/y+1<_____________>_x+1/y+1 
-  |       ^				     |       ^      |
-  |       |				     |       #      |
-  |       |				     |       #      v
-  v======>|				     v----->-#<-----|
-  x/y       x+1                             x-1/y       x/y   x+1/y
-  |       |				   
-  ^       v				   
-  y-1  <-------|				
-  x/y       x+1
+  //  y+1<_______                              x-1/y+1<_____________>_x+1/y+1 
+  //     |       ^				     |       ^      |
+  //     |       |				     |       #      |
+  //     |       |				     |       #      v
+  //     v======>|				     v----->-#<-----|
+  //     x/y    x+1                             x-1/y       x/y   x+1/y
+  //     |       |				   
+  //     ^       v				   
+  //y-1  <-------|				
+  //     x/y       x+1
 
-  - p.beta d/dtheat[x][y][mu] (1 -   Real[U_P])  = p.betas (I U  - I U^*)/2  =-  p.beta imag[U] 
+  // - p.beta d/dtheat[x][y][mu] (1 -   Real[U_P])  = p.betas (I U  - I U^*)/2  =-  p.beta imag[U] 
 
-  ============================*/
   
 void forceV(double fV[L][L][D],Complex gauge[L][L][D], param_t p) {
   
@@ -923,55 +910,47 @@ void forceV(double fV[L][L][D],Complex gauge[L][L][D], param_t p) {
 }
 
 
-
-
-// VD(theta) = chi*_e (1/D D^dag) chi_e
-//  
-// D chi = phi   and phi gausian.
-//  
-// fD = - \dd_theta VD(theta) 
-//    =   chi*_e (1/D D^dag)_ee [  D^\dag (\dd_theta D) + (\dd_theta D^\dag) D ]_ee
-//                                (1/D D^dag)_ee chi_e chi_e 
-//  
-// Should optimze this to operate only on EVEN sites.
-//  chi_even, chitmp_even, Dchitmp_odd
+/*
   
-void forceD(double fD[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_t p) {
-
-  Complex chitmp[L][L];
-  Complex Dchitmp[L][L];
+  VD(theta) = chi*_e (1/D D^dag) chi_e
+  
+  D chi = phi   and phi gausian.
+  
+  fD = - \dd_theta VD(theta) 
+  =   chi*_e (1/D D^dag)_ee [ D^\dag (\dd_theta D) + (\dd_theta D^\dag) D ]_ee (1/D D^dag)_ee chi_e chi_e 
+  
+  *****  Should optimze this to operate only on EVEN sites. ****
+  chi_even, chitmp_even, Dchitmp_odd
+  
+*/
+void forceD(double fD[L][L][D], Complex gauge[L][L][D],
+	    Complex chi[L][L][2], param_t p){
+  
+  Complex chitmp[L][L][2];
+  Complex Dchitmp[L][L][2];
   zeroField(chitmp);
   zeroField(Dchitmp);
   zeroLat(fD);
   
-  Ainv_psi(chitmp, chi, chitmp, gauge, p); // note chitmp = 0 for ODD
-  Dpsi(Dchitmp, chitmp, gauge, p); // restrict to Dslash, m = 0
+  Ainv_psi(chitmp, chi, chitmp, gauge, p);
+  Dpsi(Dchitmp, chitmp, gauge, p);
 
-  for(int x = 0; x< L;x++)
-    for(int y = 0;y < L; y++){
-      if((x + y)%2 ==1) chitmp[x][y] = Complex(0.0,0.0);
-      if((x + y)%2 ==0) Dchitmp[x][y]= Complex(0.0,0.0);
-    }
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++){
+	if((x + y)%2 ==1) chitmp[x][y][s]  = Complex(0.0,0.0);
+	if((x + y)%2 ==0) Dchitmp[x][y][s] = Complex(0.0,0.0);
+      }
+  
     
-  double eta1;
+  //Make Wilson
   for(int x=0; x<L;x++)
-    for(int y=0; y<L;y++) {
-      eta1 =(1.0 - 2.0*(x%2));
+    for(int y=0; y<L;y++) 
+      for(int s=0; s<2; s++){      
 	
-      if((x + y + 1)%2 == 0){ 
-	fD[x][y][0] += 2.0*imag(conj(Dchitmp[x][y]) * gauge[x][y][0] * chitmp[(x+1)%L][y]);
-      }
-      else {
-	fD[x][y][0] += 2.0*imag(conj(Dchitmp[(x+1)%L][y]) * conj(gauge[x][y][0]) * chitmp[x][y]);
-      };
 	
-      if((x + y + 1)%2 == 0){    
-	fD[x][y][1] += 2.0*eta1*imag(conj(Dchitmp[x][y]) * gauge[x][y][1] * chitmp[x][(y+1)%L]);
-      }
-      else {
-	fD[x][y][1] += 2.0*eta1*imag(conj(Dchitmp[x][(y+1)%L]) * conj(gauge[x][y][1]) * chitmp[x][y]);
-      }
-    }	    
+	
+      }	    
 }
 
 
@@ -1050,113 +1029,5 @@ void DoPFlip(Complex gauge[L][L][D], param_t p) {
   copyLat(gauge, parity_gauge);
 }
 
-void TestForce(Complex gauge[L][L][D], param_t p) {
-  
-  Complex chi[L][L], eta[L][L];
-  double fV[L][L][D], fD[L][L][D], mom[L][L][D];
-  Complex Deltagauge[L][L][D];
-  zeroField(chi);
-  zeroField(eta);
-  zeroLat(mom);
-  zeroLat(Deltagauge);
-
-
-  double  rmsq = 0.5;
-  gaussComplex_F(eta,rmsq,p);  //  chi[L][L]
-  Ddagpsi(chi, eta, gauge, p);  
-  for(int x = 0;x< L;x++)  //Masks out odd sites.
-    for(int y = 0;y< L;y++)
-      if((x + y)%2 == 1) chi[x][y] = 0.0;
-
-  double Hnew, Hold;
-  Hnew = 0.0; Hold = 0.0;
-  double delta = 0.00001;
-
-  copyLat(Deltagauge,gauge);
-  
-#if 1
-  p.beta = 1.0;
-  p.quenched = true;
-  forceV(fV, gauge, p);
-  Hold = calcH(mom, gauge,chi, p);
-
-  copyLat(Deltagauge,gauge);
- 
-  for(int x=0;x<L;x++)
-    for(int y=0;y<L;y++)
-      {
-
-	Deltagauge[x][y][0] =  polar(1.0,delta)*gauge[x][y][0];
-	Hnew = calcH(mom,  Deltagauge,chi, p);
-	cout<<"fV[x,y,mu] = [ "<< x <<","<< y <<", 0 ] "<< fV[x][y][0] <<" <--> " << - (Hnew - Hold)/delta << endl;
-        Deltagauge[x][y][0] =  gauge[x][y][0];
-	
-	Deltagauge[x][y][1] =  polar(1.0,delta)*gauge[x][y][1];
-	Hnew = calcH(mom,  Deltagauge,chi, p);
-	cout<<"fV[x,y,mu] = ["<< x <<","<< y <<", 1 ]  "<< fV[x][y][1] <<" <--> " << - (Hnew - Hold)/delta << endl << endl;
-	Deltagauge[x][y][1] =  gauge[x][y][1];
-      }
-#endif
-  
-  p.beta = 0.0;
-  p.quenched = false;
-  forceD(fD,gauge,chi,p);
-
-  cout << "Hold = " << Hold << endl;
-  delta = 0.00001;
-  Complex chitmp[L][L];
-  zeroField(chitmp);
-
-  // p.m = 0.0;
-#if 0 
-  for(int x=0;x<L;x++)
-    for(int y=0;y<L;y++) 
-      cout<<"chi[x,y] = ["<< x <<","<<y <<" ]  "<< chi[x][y] << endl;
-
-  cout << " CALL WITH CHI EVEN "<< endl;
-  Dpsi(chitmp,chi, gauge,p);
-  for(int x=0;x<L;x++)
-    for(int y=0;y<L;y++) 
-      cout<<"Dchi[x,y] = ["<< x <<","<<y <<" ]  "<< chitmp[x][y] << endl <<endl;
-
-  Ddagpsi(chitmp,chi, gauge,p);
-  for(int x=0;x<L;x++)
-    for(int y=0;y<L;y++) 
-      cout<<"Ddagchi[x,y] = ["<< x <<","<<y <<" ]  "<< chitmp[x][y] << endl <<endl;
- 
-  DdagDpsi(chitmp,chi, gauge,p);
-  for(int x=0;x<L;x++)
-    for(int y=0;y<L;y++) 
-      cout<<"DdagDchi[x,y] = ["<< x <<","<<y <<" ]  "<< chitmp[x][y] << endl <<endl;
-
- 
-  zeroField(chitmp);
- 
-  Ainv_psi(chitmp,chi, chitmp, gauge, p);
-
-  for(int x=0;x<L;x++)
-    for(int y=0;y<L;y++) 
-      cout<<"Ainv_chi[x,y] = ["<< x <<","<<y <<" ]  "<< chitmp[x][y] << endl <<endl;
-
-#endif
-  
-  Hold = calcH(mom, gauge, chi, p);
-  //   cout << " Original Hold = " << Hold << endl;
-  for(int x=0;x<L;x++)
-    for(int y=0;y<L;y++)
-      {
-	Deltagauge[x][y][0] =  polar(1.0,delta)*gauge[x][y][0];
-	Hnew = calcH(mom,  Deltagauge,chi, p);
-	cout<<"fD[x,y,mu] = ["<< x <<","<<y <<", 0 ]  "<< fD[x][y][0] <<" <--> "  << - (Hnew - Hold)/delta << endl;
-	Deltagauge[x][y][0] =  gauge[x][y][0];
-       
-     
-        Deltagauge[x][y][1] =  polar(1.0,delta)*gauge[x][y][1];
-	Hnew = calcH(mom,  Deltagauge,chi, p);  
-	cout<<"fD[x,y,mu] = ["<< x <<","<<y <<", 1 ]  "<< fD[x][y][1] <<" <-->  " << - (Hnew - Hold)/delta << endl << endl;
-	Deltagauge[x][y][1] =  gauge[x][y][1];
-      }
-
-}
 
 

@@ -43,7 +43,7 @@ using namespace std;
 #include "ran2s.h"
 
 #define L 16
-#define LZ 5
+#define LZ 3
 #define D 3
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
@@ -53,8 +53,8 @@ typedef complex<double> Complex;
 
 typedef struct{
 
-  int Latsize;
-
+  int Latsize = L;
+  
   //HMC
   int nstep;
   double dt;
@@ -215,10 +215,10 @@ int main(int argc, char **argv) {
   double time0 = -((double)clock());
   
   for(int iter=0; iter<p.iterHMC; iter++){
-
+    
     //Read in gauge field if requested
     if(p.checkpointStart > 0 && iter == 0) {
-      name = "gauge";
+      name = "gauge/gauge";
       constructName(name, p);
       name += "_traj" + to_string(p.checkpointStart) + ".dat";
       readGaugeLattice(gauge,name);
@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
 	//Topology
 	top = getTopCharge(gauge, p, z);
 	top_int[z] = round(top);
-	name = "top_charge_Lz";
+	name = "data/top/top_charge_Lz";
 	name += to_string(z);
 	constructName(name, p);
 	name += ".dat";
@@ -275,9 +275,10 @@ int main(int argc, char **argv) {
 	cout << (double)accepted/(count*p.skip) << " ";
 	for(int z=0; z<LZ; z++) cout << top_int[z] << " ";
 	cout << endl;
-	
+
 	//Dump to file
-	name = "data";
+	name = "data/data/data";
+	//I cannot make bricks without clay!
 	constructName(name, p);
 	name += ".dat";
 	sprintf(fname, "%s", name.c_str());
@@ -293,7 +294,7 @@ int main(int argc, char **argv) {
 
 	//Checkpoint the gauge field
 	if( (iter+1)%p.chkpt == 0) {	  
-	  name = "gauge";
+	  name = "gauge/gauge";
 	  constructName(name, p);
 	  name += "_traj" + to_string(iter+1) + ".dat";	
 	  writeGaugeLattice(gauge,name);
@@ -314,7 +315,7 @@ int main(int argc, char **argv) {
 	for(int z=0; z<LZ; z++) {
 
 	  //Plaquette actions
-	  name = "plaq_Lz" + to_string(z);
+	  name = "data/plaq/plaq_Lz" + to_string(z);
 	  constructName(name, p);
 	  name += ".dat";
 	  sprintf(fname, "%s", name.c_str());
@@ -329,7 +330,7 @@ int main(int argc, char **argv) {
 	   -log( abs( ( real(avWc[size][size][z])  *real(avWc[size-1][size-1][z]) )/ 
 		      ( real(avWc[size-1][size][z])*real(avWc[size][size-1][z]  ))));
 	  }
-	  name = "creutz_Lz" + to_string(z);
+	  name = "data/creutz/creutz_Lz" + to_string(z);
 	  constructName(name, p);
 	  name += ".dat";
 	  sprintf(fname, "%s", name.c_str());
@@ -341,7 +342,7 @@ int main(int argc, char **argv) {
 
 	  for(int sizex=2 ; sizex < L/2; sizex++)
 	    for(int sizey=sizex-1 ; (sizey < L/2 && sizey <= sizex+1) ; sizey++) {
-	      name = "rectWL_Lz" + to_string(z);
+	      name = "data/rect/rectWL_Lz" + to_string(z);
 	      name += "_" + to_string(sizex) + "_" + to_string(sizey);
 	      constructName(name, p);
 	      name += ".dat";
@@ -352,7 +353,7 @@ int main(int argc, char **argv) {
 	    }
 	  
 	  // Polyakov Loops
-	  name = "polyakov_Lz" + to_string(z);
+	  name = "data/polyakov/polyakov_Lz" + to_string(z);
 	  constructName(name, p);
 	  name += ".dat";
 	  sprintf(fname, "%s", name.c_str());
@@ -365,7 +366,7 @@ int main(int argc, char **argv) {
 	  fprintf(fp, "\n");
 	  fclose(fp);
 
-	  name = "polyakov_ratios";
+	  name = "data/polyakov/polyakov_ratios";
 	  constructName(name, p);
 	  name += ".dat";
 	  sprintf(fname, "%s", name.c_str());
@@ -377,7 +378,7 @@ int main(int argc, char **argv) {
 	  fclose(fp);
 	  
 	  //Topological Historgram
-	  name = "top_hist_Lz" + to_string(z);
+	  name = "data/top/top_hist_Lz" + to_string(z);
 	  constructName(name, p);
 	  name += ".dat";
 	  sprintf(fname, "%s", name.c_str());

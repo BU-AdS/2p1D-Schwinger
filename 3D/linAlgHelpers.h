@@ -155,7 +155,6 @@ void printParams(param_t p) {
   cout << "          Time Step = " << p.dt << endl;
   cout << "          Trajectory Steps " << p.nstep << endl;
   cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
-  cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
   cout << "Smearing: APE iter = " << p.smearIter << endl;
   cout << "          APE alpha = " << p.alpha << endl;
   #ifdef USE_ARPACK

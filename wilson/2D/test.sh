@@ -21,9 +21,9 @@ HMC_CHKPT=100
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # Number of HMC steps in the integration 
-HMC_NSTEP=100
+HMC_NSTEP=50
 # Ficticious time step size
-HMC_DT=0.01
+HMC_DT=0.02
 
 # Number of APE smearing hits to perform when measuring topology
 APE_ITER=1
@@ -37,7 +37,7 @@ RNG_SEED=1234
 DYN_QUENCH=1
 
 # Fermion mass
-MASS=0.0
+MASS=-0.06
 
 # Maximum CG iterations
 MAX_CG_ITER=1000
@@ -53,10 +53,10 @@ NEV=16
 # Tolerance on the residual
 TOL=1e-12
 # Maximum ARPACK iterations
-ARPACK_MAXITER=1000000
+ARPACK_MAXITER=100000
 
 #polyACC
-USE_ACC=$2
+USE_ACC=0
 AMAX=11
 AMIN=1.0
 N_POLY=100

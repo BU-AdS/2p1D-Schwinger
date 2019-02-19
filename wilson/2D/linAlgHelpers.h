@@ -31,15 +31,16 @@ template<typename T> inline void copyLat(T v2[L][L][D],T v1[L][L][D]) {
 template<typename T> inline void addEqLat(T v2[L][L][D],T v1[L][L][D]) {
   for(int x =0;x< L;x++)
     for(int y =0;y< L;y++)
-      for(int mu=0;mu<D;mu++)
+      for(int mu=0; mu<D; mu++)
 	v2[x][y][mu] +=  v1[x][y][mu];
 }
 
 // Zero lattice field.
-template<typename T> inline void zeroField(T psi[L][L]) {
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi[x][y] = 0.0;
+template<typename T> inline void zeroField(T psi[L][L][2]) {
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++)
+	psi[x][y][s] = 0.0;
 }
 
 // Zero half lattice field.
@@ -50,11 +51,12 @@ template<typename T> inline void zeroHalfField(T psi[L/2][L/2]) {
 }
 
 // Copy lattice field
-template<typename T> inline void copyField(T psi2[L][L],T psi1[L][L])
+template<typename T> inline void copyField(T psi2[L][L][2],T psi1[L][L][2])
 {
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      psi2[x][y] =  psi1[x][y];
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++)
+	psi2[x][y][s] = psi1[x][y][s];
 }
 
 // Add Equ v2 += v1 lattice field
@@ -74,41 +76,44 @@ template<typename T> inline T sqrSumField(T b[L][L]) {
 }
 
 // Add Equ conj(v2) dot v1 lattice field
-template<typename T> inline T dotField(T psi1[L][L], T psi2[L][L]) {
+template<typename T> inline T dotField(T psi1[L][L][2], T psi2[L][L][2]) {
   T scalar = (T) 0.0;
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++)
-      scalar +=  conj(psi1[x][y])*psi2[x][y];
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++)
+	scalar += conj(psi1[x][y][s])*psi2[x][y][s];
   return scalar;
 }
 
-double norm2(Complex psi[L][L]) {
+double norm2(Complex psi[L][L][2]) {
 
   double norm2 = 0.0;
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
-      norm2 += psi[x][y].real() * psi[x][y].real() + psi[x][y].imag() * psi[x][y].imag();
+      for(int s=0; s<2; s++)
+	norm2 += (psi[x][y][s].real() * psi[x][y][s].real() + psi[x][y][s].imag() * psi[x][y][s].imag());
   
-  return norm2/(L*L);
+  return norm2/(2*L*L);
 }
 
-Complex cDotProduct(Complex psi1[L][L], Complex psi2[L][L]) {
-
+Complex cDotProduct(Complex psi1[L][L][2], Complex psi2[L][L][2]) {
+  
   Complex prod(0.0,0.0);
   
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
-      prod += conj(psi1[x][y])*psi2[x][y];
+      prod += conj(psi1[x][y][0])*psi2[x][y][0] + conj(psi1[x][y][1])*psi2[x][y][1];
 
   return prod;
 }
 
-void caxpby(Complex a, Complex X[L][L], Complex b,
-	    Complex Y[L][L], Complex result[L][L]){
-
+void caxpby(Complex a, Complex X[L][L][2],
+	    Complex b, Complex Y[L][L][2], Complex result[L][L][2]){
+  
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
-      result[x][y] = a*X[x][y] + b*Y[x][y];
+      for(int s=0; s<2; s++)
+	result[x][y][s] = a*X[x][y][s] + b*Y[x][y][s];
 }
 
 void axpby(double a, Complex X[L][L], double b,
@@ -131,11 +136,12 @@ void xpaypbz(Complex X[L][L],
     }
 }
 
-void ax(double a, Complex X[L][L]){
+void ax(double a, Complex X[L][L][2]){
   
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++)
-      X[x][y] *= a;
+      for(int s=0; s<2; s++)
+	X[x][y][s] *= a;
 }
 
 

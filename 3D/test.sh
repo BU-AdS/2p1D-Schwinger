@@ -6,21 +6,21 @@
 # if you wish to vary L or Lz
 
 # The value of the coupling in the x-, y-dimensions
-BETA=4.0
+BETA=$1
 
 # The value of the coupling in the z-dimensions.
 # By construction, beta(Lz-1) = 0 to implement
 # open boundary conditions.
-BETAZ=4.0
+BETAZ=$2
 
 # The total number of HMC iterations to perform.
-HMC_ITER=10000
+HMC_ITER=110000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=1
+HMC_THERM=10000
 # The number of HMC iterations to skip bewteen measurements.
-HMC_SKIP=1
+HMC_SKIP=25
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
-HMC_CHKPT=1000
+HMC_CHKPT=100
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # Number of HMC steps in the integration 
@@ -29,7 +29,7 @@ HMC_NSTEP=200
 HMC_DT=0.005
 
 # Number of APE smearing hits to perfrom when measuring topology
-APE_ITER=2
+APE_ITER=1
 # The 'alpha' value in the APE smearing
 APE_ALPHA=0.5
 
@@ -61,6 +61,10 @@ TOL=1e-12
 # Maximum ARPACK iterations
 ARPACK_MAXITER=1000000
 
-./u1 $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP \
-     $HMC_DT $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $ZLOCKED $MASS $MAX_CG_ITER $CG_EPS \
-     $NKV $NEV $TOL $ARPACK_MAXITER
+COMMAND="./u1 $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START 
+	      $HMC_NSTEP $HMC_DT $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $ZLOCKED 
+	      $MASS $MAX_CG_ITER $CG_EPS $NKV $NEV $TOL $ARPACK_MAXITER"
+
+echo $COMMAND
+
+$COMMAND
