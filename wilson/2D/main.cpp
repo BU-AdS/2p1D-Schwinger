@@ -282,7 +282,7 @@ int main(int argc, char **argv) {
 	}
 
 #ifdef USE_ARPACK
-	//icount1 += arpack_solve_double(gauge, p, guess, 1);
+	icount1 += arpack_solve_double(gauge, p, guess, 1);
 	for(int x=0; x<L; x++)
 	  for(int y=0; y<L; y++)
 	    for(int s=0; s<2; s++)
@@ -941,8 +941,7 @@ void forceD(double fD[L][L][D], Complex gauge[L][L][D],
 	if((x + y)%2 ==1) chitmp[x][y][s]  = Complex(0.0,0.0);
 	if((x + y)%2 ==0) Dchitmp[x][y][s] = Complex(0.0,0.0);
       }
-  
-    
+      
   //Make Wilson
   for(int x=0; x<L;x++)
     for(int y=0; y<L;y++) 

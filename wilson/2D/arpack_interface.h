@@ -514,10 +514,8 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L][2
   t1 =  -((double)clock());
   bool inverse = (p.polyACC == 1 ? false : true);
   sortAbs(mod_evals_sorted, nconv, inverse, evals_sorted_idx);
-  for(int i=0; i<nev_ ;i++) printf("Eval[%d] = (%.6f,%.6f)\n",
-				   i, evals_[i].real(), evals_[i].imag());    
-  
-  
+  //for(int i=0; i<nev_ ;i++) printf("Eval[%d] = (%.6f,%.6f)\n",
+  //i, evals_[i].real(), evals_[i].imag());      
   t1 +=  clock();
   
   printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
