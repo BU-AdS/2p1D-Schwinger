@@ -548,7 +548,7 @@ int arpack_solve_double(Complex gauge[L][L][D], param_t p, Complex guess[L][L][2
     DdagDpsi(psi2_cpy, psi3, gauge, p);
     
     // lambda = v^dag * M*v    
-    evals_[i] = cDotProduct(psi3, psi2_cpy);
+    evals_[i] = dotField(psi3, psi2_cpy);
     
     Complex unit(1.0,0.0);
     Complex m_lambda(-real(evals_[i]),

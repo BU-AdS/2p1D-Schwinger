@@ -77,6 +77,8 @@ void DdagDpsi(Complex psi2[L][L][2], Complex  psi1[L][L][2],
   g5psi(psi2, temp, gauge, p);
 }
 
+
+
 /*===================== 
   CG solutions to Apsi = b 
   see http://en.wikipedia.org/wiki/Conjugate_gradient_method
@@ -97,15 +99,14 @@ int Ainv_psi(Complex psi[L][L][2], Complex b[L][L][2], Complex psi0[L][L][2],
   zeroField(pvec);
   
   // Find norm of rhs.
-  bsqrt =  real(dotField(b,b));
+  bsqrt = real(dotField(b,b));
   bsqrt = sqrt(bsqrt);
   
-  copyField(res,b); // res = b  - A psi0, for now start with phi0 = 0
+  // res = b  - A psi0, for now start with phi0 = 0
+  copyField(res,b); 
   copyField(pvec, res);
 
-  rsq =  real(dotField(res,res));
-  
-  // cout << "# Enter Ainv_p  bsqrt =  " << bsqrt << "  rsq   = " << rsq << endl;
+  rsq = real(dotField(res,res));
   
   // Compute Ap.
   DdagDpsi(Apvec, pvec, gauge,p);
@@ -116,20 +117,15 @@ int Ainv_psi(Complex psi[L][L][2], Complex b[L][L][2], Complex psi0[L][L][2],
     
     denom = real(dotField(pvec,Apvec));
     alpha = rsq/denom;
-    
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++) 
-	for(int s=0; s<2; s++) {
-	  psi[x][y][s] +=  alpha * pvec[x][y][s];
-	  res[x][y][s] += -alpha * Apvec[x][y][s];
-	}
+
+    axpy( alpha, pvec, psi);
+    axpy(-alpha, Apvec, res);
     
     // Exit if new residual is small enough
     rsqNew = real(dotField(res,res));
-    //   cout << "k = "<< k <<"   rsqNew = " << rsqNew << endl; 
     
     if (sqrt(rsqNew) < p.eps*bsqrt) {
-      //    	printf("Final rsq = %g\n", rsqNew);
+      //printf("Final rsq = %g\n", rsqNew);
       break;
     }
     
@@ -137,11 +133,7 @@ int Ainv_psi(Complex psi[L][L][2], Complex b[L][L][2], Complex psi0[L][L][2],
     beta = rsqNew / rsq;
     rsq = rsqNew;
     
-    for(int x =0;x<L;x++)
-      for(int y =0;y<L;y++)
-	for(int s=0; s<2; s++) {
-	  pvec[x][y][s] = res[x][y][s] + beta * pvec[x][y][s];
-	}
+    axpy(beta, pvec, res, pvec);
     
     // Compute the new Ap.
     DdagDpsi(Apvec, pvec, gauge,p);  
@@ -159,11 +151,7 @@ int Ainv_psi(Complex psi[L][L][2], Complex b[L][L][2], Complex psi0[L][L][2],
   }
 
   DdagDpsi(Apvec,  psi, gauge,p);
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      	for(int s=0; s<2; s++) {
-	  res[x][y][s] = b[x][y][s] - Apvec[x][y][s];
-	}
+  axpy(-1.0, Apvec, b, res);
   
   //double truersq =  real(dotField(res,res));
   //printf("CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,rsq,truersq);

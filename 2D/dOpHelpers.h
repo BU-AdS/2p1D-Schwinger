@@ -85,7 +85,8 @@ void DdagDpsi(Complex psi2[L][L], Complex  psi1[L][L],
   see http://en.wikipedia.org/wiki/Conjugate_gradient_method
   ======================*/
 
-int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gauge[L][L][D], param_t p) {
+int Ainv_psi(Complex psi[L][L], Complex b[L][L], Complex psi0[L][L], Complex gauge[L][L][D], param_t p) {
+
   Complex res[L][L] , pvec[L][L], Apvec[L][L];
   double alpha, beta, denom ;
   double rsq = 0, rsqNew = 0, bsqrt = 0.0;
@@ -96,10 +97,10 @@ int Ainv_psi(Complex psi[L][L],Complex b[L][L], Complex psi0[L][L], Complex gaug
   zeroField(pvec);
   
   // Find norm of rhs.
-  bsqrt =  real(dotField(b,b));
+  bsqrt = real(dotField(b,b));
   bsqrt = sqrt(bsqrt);
   
-  copyField(res,b); // res = b  - A psi0, for now start with phi0 = 0
+  copyField(res, b); // res = b  - A psi0, for now start with phi0 = 0
   copyField(pvec, res);
 
   rsq =  real(dotField(res,res));

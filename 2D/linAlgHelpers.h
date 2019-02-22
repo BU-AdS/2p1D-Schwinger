@@ -143,8 +143,8 @@ void printParams(param_t p) {
   cout << endl;
   cout << "Physics:  Size = "<< L << endl;
   cout << "          Beta = "<< p.beta << endl;
-  cout << "          Quenching = " << (p.quenched == true ? "True" : "False") << endl;
-  if (!p.quenched) cout << "          Mass = "<< p.m << endl;
+  cout << "          Dynamic = " << (p.dynamic == true ? "True" : "False") << endl;
+  if (p.dynamic) cout << "          Mass = "<< p.m << endl;
   cout << "HMC:      Therm Sweeps = " << p.therm << endl; 
   cout << "          Data Points = " << p.iterHMC - p.therm << endl;
   cout << "          Time Step = " << p.dt << endl;
@@ -162,7 +162,7 @@ void printParams(param_t p) {
 
 void constructName(string &name, param_t p) {
   name += "_L" + to_string(p.Latsize) + "_B" + to_string(p.beta);
-  if(p.quenched == false) name += "_M"+ to_string(p.m);
+  if(p.dynamic == true) name += "_M"+ to_string(p.m);
   name += "_dt" + to_string(p.dt) + "_nHMCstep" + to_string(p.nstep);
 }
 

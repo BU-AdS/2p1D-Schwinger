@@ -13,9 +13,9 @@ BETA=$1
 # The total number of HMC iterations to perform.
 HMC_ITER=1100
 # The number of HMC iterations for thermalisation.
-HMC_THERM=10
+HMC_THERM=100
 # The number of HMC iterations to skip bewteen measurements.
-HMC_SKIP=25
+HMC_SKIP=1
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
 HMC_CHKPT=100
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
@@ -56,7 +56,7 @@ TOL=1e-12
 ARPACK_MAXITER=1000000
 
 #polyACC
-USE_ACC=$2
+USE_ACC=0
 AMAX=11
 AMIN=1.0
 N_POLY=100

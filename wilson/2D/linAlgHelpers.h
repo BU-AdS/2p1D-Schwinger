@@ -96,17 +96,6 @@ double norm2(Complex psi[L][L][2]) {
   return norm2/(2*L*L);
 }
 
-Complex cDotProduct(Complex psi1[L][L][2], Complex psi2[L][L][2]) {
-  
-  Complex prod(0.0,0.0);
-  
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      prod += conj(psi1[x][y][0])*psi2[x][y][0] + conj(psi1[x][y][1])*psi2[x][y][1];
-
-  return prod;
-}
-
 void caxpby(Complex a, Complex X[L][L][2],
 	    Complex b, Complex Y[L][L][2], Complex result[L][L][2]){
   
@@ -123,6 +112,24 @@ void axpby(double a, Complex X[L][L], double b,
     for(int y=0; y<L; y++)
       result[x][y] = a*X[x][y] + b*Y[x][y];
 }
+
+void axpy(double a, Complex X[L][L][2], Complex Y[L][L][2]){ 
+  
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++)
+	Y[x][y][s] = a*X[x][y][s] + Y[x][y][s];
+}
+
+
+void axpy(double a, Complex X[L][L][2], Complex Y[L][L][2], Complex result[L][L][2]){ 
+  
+  for(int x=0; x<L; x++)
+    for(int y=0; y<L; y++)
+      for(int s=0; s<2; s++)
+	result[x][y][s] = a*X[x][y][s] + Y[x][y][s];
+}
+
 
 void xpaypbz(Complex X[L][L],
 	     double a, Complex Y[L][L],
@@ -149,10 +156,10 @@ void printParams(param_t p) {
   cout << endl;
   cout << "Physics:  Size = "<< L << endl;
   cout << "          Beta = "<< p.beta << endl;
-  cout << "          Quenching = " << (p.quenched == true ? "True" : "False") << endl;
-  if (!p.quenched) cout << "          Mass = "<< p.m << endl;
-  cout << "HMC:      Therm Sweeps = " << p.therm << endl; 
-  cout << "          Data Points = " << p.iterHMC - p.therm << endl;
+  cout << "          Dynamic = " << (p.dynamic == true ? "True" : "False") << endl;
+  if (p.dynamic == true) cout << "          Mass = "<< p.m << endl;
+  cout << "HMC:      Therm Sweeps (1/2 accept, 1/2 accept/reject) = " << 2*p.therm << endl; 
+  cout << "          Data Points = " << p.iterHMC << endl;
   cout << "          Time Step = " << p.dt << endl;
   cout << "          Trajectory Steps " << p.nstep << endl;
   cout << "          Trajectory Length = " << p.dt*p.nstep << endl;
@@ -168,7 +175,7 @@ void printParams(param_t p) {
 
 void constructName(string &name, param_t p) {
   name += "_L" + to_string(p.Latsize) + "_B" + to_string(p.beta);
-  if(p.quenched == false) name += "_M"+ to_string(p.m);
+  if(p.dynamic == true) name += "_M"+ to_string(p.m);
   name += "_dt" + to_string(p.dt) + "_nHMCstep" + to_string(p.nstep);
 }
 
