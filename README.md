@@ -33,10 +33,10 @@ or quenched simulations, dictated from the command line.
 Each action has several utilities at your disposal. Please refer to the comments in
 the source for further information. We list here the features as a synopsis:
 
-    1. Gauge field saving/loading.
-    2. Gauge field smearing (APE)
-    3. Linear algebra suite (linAlgHelpers.h)
-    4. ARPACK driven eigensolver
+   1. Gauge field saving/loading.
+   2. Gauge field smearing (APE)
+   3. Linear algebra suite (linAlgHelpers.h)
+   4. ARPACK driven eigensolver
 
 ### Measurements
 
