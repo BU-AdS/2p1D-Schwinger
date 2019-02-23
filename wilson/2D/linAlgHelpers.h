@@ -158,7 +158,7 @@ void printParams(param_t p) {
   cout << "          Beta = "<< p.beta << endl;
   cout << "          Dynamic = " << (p.dynamic == true ? "True" : "False") << endl;
   if (p.dynamic == true) cout << "          Mass = "<< p.m << endl;
-  cout << "HMC:      Therm Sweeps (1/2 accept, 1/2 accept/reject) = " << 2*p.therm << endl; 
+  cout << "HMC:      Therm Sweeps: (" << p.therm << " accept) (" << p.therm << " accept/reject)" << endl; 
   cout << "          Data Points = " << p.iterHMC << endl;
   cout << "          Time Step = " << p.dt << endl;
   cout << "          Trajectory Steps " << p.nstep << endl;

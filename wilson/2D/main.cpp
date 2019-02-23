@@ -9,7 +9,7 @@
 using namespace std;
 #include "ran2s.h"
 
-#define L 16
+#define L 32
 #define D 2
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
@@ -21,35 +21,35 @@ typedef complex<double> Complex;
 typedef struct{
   
   //HMC
-  int nstep;
-  double dt;
-  int iterHMC;
-  int therm;
-  int skip;
-  int chkpt;
-  int checkpointStart;
-  int maxIterCG;
-  double eps;
+  int nstep = 25;
+  double dt = 0.04;
+  int iterHMC = 1000;
+  int therm = 50;
+  int skip = 25;
+  int chkpt = 100;
+  int checkpointStart = 0;
+  int maxIterCG = 1000;
+  double eps = 1e-6;
   
   //physics
-  int Latsize;
-  double beta;
-  double m;
-  bool dynamic;
+  int Latsize = L;
+  double beta = 3.0;
+  double m = -0.06;
+  bool dynamic = true;
 
   //Smearing
-  double alpha;
-  int smearIter;
-
+  double alpha = 0.5;
+  int smearIter = 1;
+  
   //Arpack params
-  int nEv;
-  int nKv;
-  double arpackTol;
-  int arpackMaxiter;
-  int polyACC;
-  double amax;
-  double amin;
-  int n_poly;
+  int nEv = 16;
+  int nKv = 32;
+  double arpackTol = 1e-6;
+  int arpackMaxiter = 10000;
+  int polyACC = 0;
+  double amax = 10.0;
+  double amin = 0.1;
+  int n_poly = 100;
   
 } param_t;
 
@@ -193,7 +193,6 @@ int main(int argc, char **argv) {
   int index = 0;
   string name;
   fstream outPutFile;
-  //double elapsed = 0.0;
   
   int accept;
   int accepted = 0;
@@ -206,33 +205,41 @@ int main(int argc, char **argv) {
 
   //Start simulation
   double time0 = -((double)clock());
-  int iter;
-  for(iter=0; iter<p.iterHMC; iter++){
+  int iter_offset = 0;
+  int iter = 0;
+  
+  if(p.checkpointStart > 0) {
 
-    /*
     //Read in gauge field if requested
-    if(p.checkpointStart > 0 && iter == 0) {
-      name = "gauge/gauge";
-      constructName(name, p);
-      name += "_traj" + to_string(p.checkpointStart) + ".dat";	
-      readGaugeLattice(gauge,name);
-      iter += p.checkpointStart;
+    //---------------------------------------------------------------------
+    name = "gauge/gauge";
+    constructName(name, p);
+    name += "_traj" + to_string(p.checkpointStart) + ".dat";	
+    readGaugeLattice(gauge,name);
+    iter_offset = p.checkpointStart;    
+  } else {
+
+    //Thermalise from random start
+    //---------------------------------------------------------------------
+    for(iter=0; iter<p.therm; iter++){  
+      //Perform HMC step
+      accept = hmc(gauge, p, iter);
+      double time = time0 + clock();
+      cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
+      cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
     }
-    */
     
+    for(iter=p.therm; iter<2*p.therm; iter++){  
+      //Perform HMC step with accept/reject
+      accept = hmc(gauge, p, iter);
+      double time = time0 + clock();
+      cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
+      cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
+    }
+    iter_offset = 2*p.therm;    
   }
   
-  for(iter=0; iter<p.therm; iter++){  
-    //Perform HMC step
-    accept = hmc(gauge, p, iter);
-  }
-
-  for(iter=p.therm; iter<2*p.therm; iter++){  
-    //Perform HMC step with accept/reject
-    accept = hmc(gauge, p, iter);
-  }
-
-  for(iter=2*p.therm; iter<p.iterHMC + 2*p.therm; iter++){
+  for(iter=iter_offset; iter<p.iterHMC + iter_offset; iter++){
     
     //Measure the plaquette and topological charge
     

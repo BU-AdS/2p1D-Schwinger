@@ -11,18 +11,18 @@ mkdir -p {data/{rect,polyakov,data,creutz,top},gauge}
 BETA=$1
 
 # The total number of HMC iterations to perform.
-HMC_ITER=10000
+HMC_ITER=125000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=5
+HMC_THERM=10000
 # The number of HMC iterations to skip bewteen measurements.
-HMC_SKIP=1
+HMC_SKIP=25
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
 HMC_CHKPT=100
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
-# Number of HMC steps in the integration 
+# HMC time steps in the integration 
 HMC_NSTEP=20
-# Ficticious time step size
+# HMC time step size
 HMC_DT=0.05
 
 # Number of APE smearing hits to perform when measuring topology
@@ -34,18 +34,17 @@ APE_ALPHA=0.5
 RNG_SEED=1234
 
 # DYNAMIC (1) or QUENCHED (0)
-DYN_QUENCH=1
+DYN_QUENCH=0
 
+# Dynamic fermion parameters
 # Fermion mass
 MASS=-0.06
-
 # Maximum CG iterations
 MAX_CG_ITER=1000
-
 # CG tolerance
 CG_EPS=1e-6
 
-# ARPACK parameters
+# Eigensolver parameters
 # Krylov space size
 NKV=128
 # Requested converged eigenpairs
@@ -55,7 +54,7 @@ TOL=1e-12
 # Maximum ARPACK iterations
 ARPACK_MAXITER=100000
 
-#polyACC
+#polyACC (experimental)
 USE_ACC=0
 AMAX=11
 AMIN=1.0

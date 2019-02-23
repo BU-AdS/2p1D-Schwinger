@@ -79,10 +79,10 @@ void DdagDpsi(Complex psi2[L][L][2], Complex  psi1[L][L][2],
 
 
 
-/*===================== 
-  CG solutions to Apsi = b 
-  see http://en.wikipedia.org/wiki/Conjugate_gradient_method
-  ======================*/
+//===============================================================
+// CG solutions to Apsi = b 
+// see http://en.wikipedia.org/wiki/Conjugate_gradient_method
+//===============================================================
 
 int Ainv_psi(Complex psi[L][L][2], Complex b[L][L][2], Complex psi0[L][L][2],
 	     Complex gauge[L][L][D], param_t p) {
