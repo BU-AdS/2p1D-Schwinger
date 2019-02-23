@@ -1,0 +1,11 @@
+#!/bin/bash
+
+BETA=2
+
+while [ ${BETA} -le 8 ]; do
+    
+    ./test.sh ${BETA} >& log_${BETA}.log &
+    
+    let BETA=BETA+2
+    
+done
