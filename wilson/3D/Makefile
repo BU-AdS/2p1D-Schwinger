@@ -9,9 +9,10 @@ ARPACK_LIB= -L${ARPACK}/lib/ -larpack
 TARGET = u1
 SOURCES = main.cpp 
 OBJS    = main.o 
+INC_PATH=-I/Users/deanhowarth/2p1D-Schwinger/wilson/include
 
 CXX=g++
-CXXFLAGS = -O3 -g -std=c++11 -I/Users/deanhowarth/2p1D-Schwinger/wilson ${ARPACK_FLAGS}
+CXXFLAGS = -O3 -g -std=c++11 ${ARPACK_FLAGS}
 
 #============================================================
 
