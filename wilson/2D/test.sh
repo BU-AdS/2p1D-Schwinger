@@ -10,24 +10,27 @@ mkdir -p {data/{rect,polyakov,data,creutz,top},gauge}
 # The value of the coupling in the U(1) 2D theory
 BETA=$1
 
+
+
+
 # The total number of HMC iterations to perform.
-HMC_ITER=125000
+HMC_ITER=50000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=10000
+HMC_THERM=500
 # The number of HMC iterations to skip bewteen measurements.
-HMC_SKIP=25
+HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
-HMC_CHKPT=100
+HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # HMC time steps in the integration 
-HMC_NSTEP=20
-# HMC time step size
-HMC_DT=0.05
+HMC_NSTEP=16
+# HMC trajectory time
+HMC_TAU=1.0
 
 # Number of APE smearing hits to perform when measuring topology
 APE_ITER=1
-# The 'alpha' value in the APE smearing
+# The alpha value in the APE smearing
 APE_ALPHA=0.5
 
 # The RNG seed
@@ -35,6 +38,9 @@ RNG_SEED=1234
 
 # DYNAMIC (1) or QUENCHED (0)
 DYN_QUENCH=0
+
+
+
 
 # Dynamic fermion parameters
 # Fermion mass
@@ -46,9 +52,9 @@ CG_EPS=1e-6
 
 # Eigensolver parameters
 # Krylov space size
-NKV=128
+NKV=32
 # Requested converged eigenpairs
-NEV=100
+NEV=16
 # Tolerance on the residual
 TOL=1e-12
 # Maximum ARPACK iterations
@@ -62,7 +68,7 @@ N_POLY=100
 
 
 command="./u1 $BETA $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP \
-     	      $HMC_DT $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $MASS $MAX_CG_ITER $CG_EPS \
+     	      $HMC_TAU $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $MASS $MAX_CG_ITER $CG_EPS \
      	      $NKV $NEV $TOL $ARPACK_MAXITER $USE_ACC $AMAX $AMIN $N_POLY"
 
 echo $command

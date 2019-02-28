@@ -1,7 +1,7 @@
 /* ================================================================================= 
 
    Sat Jan 22 13:43:09 PST 2005 Richard Brower  
-   U(1) NON-COMPACT  Gauge Field for 2-d Quenched Lattice
+OB   U(1) NON-COMPACT  Gauge Field for 2-d Quenched Lattice
 
    This does Heat Bath on the phase angles for the non-compact action:
 
@@ -123,9 +123,10 @@ int countBM = 0;
 int main(int argc, char **argv) {
 
   param_t p;
-
-  p.beta = atof(argv[1]);
-  p.betaz= atof(argv[2]);
+  p.Latsize = L;
+  
+  p.beta  = atof(argv[1]);
+  p.betaz = atof(argv[2]);
   p.iterHMC = atoi(argv[3]);
   p.therm = atoi(argv[4]);
   p.skip = atoi(argv[5]);
@@ -266,7 +267,7 @@ int main(int argc, char **argv) {
 	}
       
 	double time = time0 + clock();
-      
+	
 	cout << fixed << setprecision(16) << iter+1 << " ";
 	cout << time/(CLOCKS_PER_SEC) << " ";
 	cout << plaqSum[(LZ-1)/2]/count << " ";
@@ -278,7 +279,6 @@ int main(int argc, char **argv) {
 
 	//Dump to file
 	name = "data/data/data";
-	//I cannot make bricks without clay!
 	constructName(name, p);
 	name += ".dat";
 	sprintf(fname, "%s", name.c_str());
@@ -456,7 +456,6 @@ void gaussStart(Complex (&gauge)[L][L][LZ][D], param_t p){
     for(int y=0; y<L; y++)
       for(int z=0; z<LZ; z++)
 	for(int mu=0; mu<D; mu++) {
-	  //gauge[x][y][z][mu] = polar(1.0,sqrt(1.0/p.beta)*rang());
 	  gauge[x][y][z][mu] = polar(1.0, TWO_PI*drand48() );
 	  if(p.lockedZ && mu == 2) gauge[x][y][z][mu] = 1.0;
 	}  
@@ -487,6 +486,7 @@ double measPlaq(Complex gauge[L][L][LZ][D], int z){
 }
 
 double getTopCharge(Complex gauge[L][L][LZ][D], param_t p, int z){
+  
   Complex w;
   double top = 0.0;
   Complex Smeared[L][L][2];
@@ -712,7 +712,7 @@ double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D], Complex chi[L]
 }
 
 void trajectory(double (&mom)[L][L][LZ][D], Complex (&gauge)[L][L][LZ][D],
-		Complex chi[L][L], param_t p) {
+		Complex phi[L][L][2], param_t p) {
   
   int dim = D;
   if(p.lockedZ) dim -= 1;
@@ -930,10 +930,8 @@ void forceD(double fD[L][L][D],Complex gauge[L][L][D], Complex chi[L][L], param_
 void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWc)[L][L][LZ]){
   
   Complex w;
-  int p1, p2, p3, p4;
-  double denom = 1.0/(L*L);
-  int YrectStart = 1;
-  int YrectFin = 1;
+  int p1, p2;
+  double inv_Lsq = 1.0/(L*L);
   
   //Loop over z planes
   for(int z=0; z<LZ; z++) {
@@ -950,7 +948,7 @@ void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWc)[L][L][LZ]){
 	  for(int y=0; y<L; y++){
 	    
 	    w = Complex(1.0,0.0);
-
+	    
 	    //if(x == 0 && y == 0 && z == 0) cout << gauge[x][y][z][0] << " " << gauge[x][y][z][1] << " " << gauge[x][y][z][2] << endl;
 	    
 	    //Move in +x up to p1.
@@ -966,7 +964,7 @@ void areaLaw(const Complex gauge[L][L][LZ][D], Complex (&avWc)[L][L][LZ]){
 	    
 	    //Move in -y from p2 to y
 	    for(int dy=Yrect-1; dy>=0; dy--)  w *= conj(gauge[x][ (y+dy)%L ][z][1]);
-	    avWc[Xrect][Yrect][z] += w*denom;
+	    avWc[Xrect][Yrect][z] += w*inv_Lsq;
 	  }
       }
     }

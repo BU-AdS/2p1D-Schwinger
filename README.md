@@ -61,7 +61,7 @@ The sole dependency is from ARPACK. We have tested against macOS Mojave and used
 When making a `main.cpp` file, specifiy ARPACK linking in the `Makefile` and adjust
 the path accordingly. Then type
 
-    `make`
+    make
 
-to build.
+to build the `u1` executable.
 

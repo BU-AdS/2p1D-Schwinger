@@ -2,18 +2,17 @@
 ARPACK=/usr/local/Cellar/arpack/3.6.2
 
 ARPACK_LIB= -L${ARPACK}/lib/ -larpack
-#ARPACK_FLAGS= -DUSE_ARPACK
+ARPACK_FLAGS= -DUSE_ARPACK
 
 #============================================================
 
 TARGET = u1
 
-SOURCES = main.cpp ran2s.cpp rangs.cpp
-OBJS    = main.o ran2s.o rangs.o
-INCLUDES = ran2s.h arpack_interface.h dOpHelpers.h linAlgHelpers.h
+SOURCES = main.cpp
+OBJS    = main.o
 
 CXX=g++
-CXXFLAGS = -O3 -g -std=c++11 ${ARPACK_FLAGS}
+CXXFLAGS = -O3 -g -std=c++11 -I/Users/deanhowarth/2p1D-Schwinger/wilson ${ARPACK_FLAGS}
 
 #============================================================
 
