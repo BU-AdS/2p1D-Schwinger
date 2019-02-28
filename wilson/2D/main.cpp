@@ -4,7 +4,6 @@
 #include <string.h>
 #include <cmath>
 #include <complex>
-#include <omp.h>
 
 using namespace std;
 
@@ -17,51 +16,17 @@ typedef complex<double> Complex;
 #define I Complex(0,1)
 #define cUnit Complex(1,0)
 
-typedef struct{
-  
-  //HMC
-  int nstep = 25;
-  double tau = 1.0;
-  int iterHMC = 1000;
-  int therm = 50;
-  int skip = 25;
-  int chkpt = 100;
-  int checkpointStart = 0;
-  int maxIterCG = 1000;
-  double eps = 1e-6;
-  
-  //physics
-  int Latsize = L;
-  double beta = 3.0;
-  double m = -0.06;
-  bool dynamic = true;
-  bool lockedZ = true;
-  
-  //Smearing
-  double alpha = 0.5;
-  int smearIter = 1;
-  
-  //Arpack params
-  int nEv = 16;
-  int nKv = 32;
-  double arpackTol = 1e-6;
-  int arpackMaxiter = 10000;
-  int polyACC = 0;
-  double amax = 10.0;
-  double amin = 0.1;
-  int n_poly = 100;
-  
-} param_t;
+#include "utils.h"
+#include "latHelpers.h"
+#include "measurementHelpers.h"
+#include "wFermionHelpers.h"
+#include "dOpHelpers.h"
 
+#ifdef USE_ARPACK
+#include "arpack_interface.h"
+#endif
 
-//Measurements
-//----------------------------------------------------------------------------
-void areaLaw(Complex gauge[L][L][D], Complex avW[L/2][L/2], param_t p);
-void polyakovLoops(Complex  gauge[L][L][D], Complex polyakov[L/2]);
-double getTopCharge(Complex gauge[L][L][D], param_t p);
-
-
-//HMC
+//HMC routines defined by dimension, so kept in main file
 //----------------------------------------------------------------------------
 int hmc(Complex gauge[L][L][D], param_t p, int iter);
 double calcH(double mom[L][L][D], Complex gauge[L][L][D],
@@ -72,18 +37,10 @@ void forceU(double fU[L][L][D], Complex gauge[L][L][D], param_t p);
 void forceD(double fU[L][L][D], Complex gauge[L][L][D], Complex phi[L][L][2], param_t p);
 void update_mom(double fU[L][L][D], double fD[L][L][D], double mom[L][L][D], double dtau);
 void update_gauge(Complex gauge[L][L][D], double mom[L][L][D], double dtau);
+void doParityFlip(Complex gauge[L][L][D], param_t p);
 //----------------------------------------------------------------------------
 
-void DoPFlip(Complex gauge[L][L][D], param_t p);
-
-#include "utils.h"
-#include "linAlgHelpers.h"
-#include "dOpHelpers.h"
-
-#ifdef USE_ARPACK
-#include "arpack_interface.h"
-#endif
-
+//Global variables.
 int expcount = 0;
 double expdHAve = 0.0;
 double dHAve = 0.0;
@@ -102,7 +59,6 @@ int main(int argc, char **argv) {
   if(p.checkpointStart > 0) p.iterHMC += p.checkpointStart;
   p.nstep = atoi(argv[7]);
   p.tau = atof(argv[8]);
-
   
   p.smearIter = atoi(argv[9]);
   p.alpha = atof(argv[10]);  
@@ -135,8 +91,16 @@ int main(int argc, char **argv) {
   int top_int = 0;
   int top_old = 0;
   int top_stuck = 0;
+
+  int histL = 101;
+  int histQ[histL];
+  double plaqSum = 0.0;
+  int index = 0;
+  for(int i = 0; i < histL; i++) histQ[i] = 0;
+
   
   Complex gauge[L][L][D];
+  zeroLat(gauge);  
   Complex gaugeFree[L][L][D];
   for(int x=0; x<L; x++)
     for(int y=0; y<L; y++) {
@@ -144,40 +108,19 @@ int main(int argc, char **argv) {
       gaugeFree[L][L][1] = cUnit;
     }
   
-  Complex avW[L][L], avWc[L/2][L/2];
-
-#ifdef USE_ARPACK
-  Complex guess[L][L][2];
-  Complex guessDUM[L][L][2];
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int s=0; s<2; s++)
-	guess[x][y][s] = I;
   
-  int icount1 = 0;
-  int icount2 = 0;
-  int icount3 = 0;
-#endif
-  
-  int histL = 101;
-  int histQ[histL];
-  for(int i = 0; i < histL; i++) histQ[i] = 0;
-  
-  double sigma[L];
-  Complex polyakov[L/2];
-  //Complex polyakovAveTest(0.0,0.0);
-  
+  double sigma[L/2];
+  Complex pLoops[L/2];
+  Complex wLoops[L/2][L/2];  
   for(int x=0; x<L/2; x++) {
-    polyakov[x] = 0.0;
+    pLoops[x] = 0.0;
+    sigma[x] = 0.0;
     for(int y=0; y<L/2; y++) {
-      avW[x][y] = Complex(0.0,0.0);    // for average wilson loops
-      avWc[x][y] = Complex(0.0,0.0);   // for average Creutz ratios
+      wLoops[x][y] = Complex(0.0,0.0);   // for average Creutz ratios
     }
   }
   
   int count = 0;
-  double plaqSum = 0.0;
-  int index = 0;
   string name;
   fstream outPutFile;
   
@@ -186,7 +129,6 @@ int main(int argc, char **argv) {
   char fname[256];
   FILE *fp;
 
-  //sran2(iseed);
   printParams(p);  
   gaussStart(gauge,p);  // hot start
 
@@ -228,16 +170,15 @@ int main(int argc, char **argv) {
   
   for(iter=iter_offset; iter<p.iterHMC + iter_offset; iter++){
     
-    //Measure the plaquette and topological charge
-    
     //Perform HMC step
     accept = hmc(gauge, p, iter);
     
     //HMC acceptance
     accepted += accept;
-      
-    //Topology
-    top = getTopCharge(gauge,p);
+
+    //Measure the topological charge
+    //------------------------------
+    top = getTopCharge(gauge, p);
     top_int = round(top);
     name = "data/top/top_charge";
     constructName(name, p);
@@ -251,7 +192,9 @@ int main(int argc, char **argv) {
     histQ[index]++;
     if(top_old == top_int) top_stuck++;
     top_old = top_int;
-      
+    
+    //Perform Measurements
+    //--------------------
     if( (iter+1)%p.skip == 0) {
       
       count++;
@@ -280,7 +223,7 @@ int main(int argc, char **argv) {
       cout << top_int << endl;                            //T charge
 	
       //Dump to file
-      name = "data/data/data";
+      name = "data/data/data";//I cannot make bricks without clay!
       constructName(name, p);
       name += ".dat";	
       sprintf(fname, "%s", name.c_str());	
@@ -295,20 +238,48 @@ int main(int argc, char **argv) {
 	      (double)accepted/(count*p.skip));
       fclose(fp);
 	
-      //Compute gauge observables	
-      for(int a=0; a<L/2; a++) polyakov[a] = 0.0;
-      polyakovLoops(gauge, polyakov);
-	
-      zeroWL(avWc);
-      areaLaw(gauge, avWc, p);
-	
-      // Creutz Ratios
-      for(int size=1; size<L/2; size++) {
-	sigma[size]  = - log(abs((real(avWc[size][size])/real(avWc[size-1][size]))* 
-				(real(avWc[size-1][size-1])/real(avWc[size][size-1]))));
+      //Polyakov wLoops      
+      for(int a=0; a<L/2; a++) pLoops[a] = 0.0;
+      calcPolyakovLoops(gauge, pLoops);
+      
+      name = "data/polyakov/polyakov";
+      constructName(name, p);
+      name += ".dat";
+      sprintf(fname, "%s", name.c_str());
+      fp = fopen(fname, "a");
+      fprintf(fp, "%d ", iter + 1);
+      for(int size=1 ; size < L/2; size++)
+	fprintf(fp, "%.16e %.16e ",
+		real(pLoops[size]),
+		imag(pLoops[size]) );
+      fprintf(fp, "\n");
+      fclose(fp);
 
-	sigma[size] += - log(abs((real(avWc[size][size])/real(avWc[size][size-1]))* 
-				(real(avWc[size-1][size-1])/real(avWc[size-1][size]))));
+      name = "data/polyakov/polyakov_ratios";
+      constructName(name, p);
+      name += ".dat";
+      sprintf(fname, "%s", name.c_str());
+      fp = fopen(fname, "a");
+      fprintf(fp, "%d ", iter + 1);
+      for(int size=1 ; size < L/2-1; size++)
+	fprintf(fp, "%.16e ",
+		real(pLoops[size+1])/real(pLoops[size]));
+      fprintf(fp, "\n");
+      fclose(fp);
+
+
+      
+      // Creutz Ratios
+      zeroWL(wLoops);
+      calcWilsonLoops(gauge, wLoops, p);
+      
+      //Compute string tension
+      for(int size=1; size<L/2; size++) {
+	sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
+				(real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
+	
+	sigma[size] += - log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
+				 (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
 	
 	sigma[size] *= 0.5;
 	
@@ -324,7 +295,7 @@ int main(int argc, char **argv) {
 	fprintf(fp, "%.16e ", sigma[size]);
       fprintf(fp, "\n");
       fclose(fp);
-
+      
       for(int sizex=2; sizex<L/2; sizex++)
 	for(int sizey=sizex-1; (sizey < L/2 && sizey <= sizex+1); sizey++) {
 	  name = "data/rect/rectWL";
@@ -333,35 +304,11 @@ int main(int argc, char **argv) {
 	  name += ".dat";
 	  sprintf(fname, "%s", name.c_str());
 	  fp = fopen(fname, "a");
-	  fprintf(fp, "%d %.16e %.16e\n", iter+1, real(avWc[sizex][sizey]), imag(avWc[sizex][sizey]));	    
+	  fprintf(fp, "%d %.16e %.16e\n", iter+1, real(wLoops[sizex][sizey]), imag(wLoops[sizex][sizey]));	    
 	  fclose(fp);
 	}
-	
-      name = "data/polyakov/polyakov";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d ", iter + 1);
-      for(int size=1 ; size < L/2; size++)
-	fprintf(fp, "%.16e %.16e ",
-		real(polyakov[size]),
-		imag(polyakov[size]) );
-      fprintf(fp, "\n");
-      fclose(fp);
 
-      name = "data/polyakov/polyakov_ratios";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d ", iter + 1);
-      for(int size=1 ; size < L/2-1; size++)
-	fprintf(fp, "%.16e ",
-		real(polyakov[size+1])/real(polyakov[size]));
-      fprintf(fp, "\n");
-      fclose(fp);
-	
+      //Update topoligical charge histogram
       name = "data/top/top_hist";
       constructName(name, p);
       name += ".dat";
@@ -377,120 +324,9 @@ int main(int argc, char **argv) {
 }
 
 
-//======================================================================
-//   Creutz     exp[ -sigma L^2] exp[ -sigma(L-1)(L-1)]
-//   ratio:    ---------------------------------------  = exp[ -sigma]
-//              exp[ -sigma (L-1)L] exp[-sigma L(L-1)]
-//======================================================================
-
-void areaLaw(Complex gauge[L][L][D], Complex avWc[L/2][L/2], param_t p){
-
-  Complex w;
-  int p1, p2;
-  Complex smeared[L][L][D];
-  double inv_Lsq = 1.0/(L*L);
-  smearLink(smeared, gauge, p);
-  
-    //Loop over all X side sizes of rectangle 
-    for(int Xrect=1; Xrect<L/2; Xrect++) {
-      
-      //Loop over all Y side sizes of rectangle
-      for(int Yrect=1; Yrect<L/2; Yrect++) {
-
-	//Loop over all x,y
-	for(int x=0; x<L; x++)
-	  for(int y=0; y<L; y++){
-	    
-	    w = Complex(1.0,0.0);
-	    
-	    //Move in +x up to p1.
-	    for(int dx=0; dx<Xrect; dx++)    w *= smeared[ (x+dx)%L ][y][0];
-	    
-	    //Move in +y up to p2 (p1 constant)
-	    p1 = (x + Xrect)%L;
-	    for(int dy=0; dy<Yrect; dy++)    w *= smeared[p1][ (y+dy)%L ][1];
-	    
-	    //Move in -x from p1 to (p2 constant)
-	    p2 = (y + Yrect)%L;
-	    for(int dx=Xrect-1; dx>=0; dx--)  w *= conj(smeared[ (x+dx)%L ][p2][0]);
-	    
-	    //Move in -y from p2 to y
-	    for(int dy=Yrect-1; dy>=0; dy--)  w *= conj(smeared[x][ (y+dy)%L ][1]);
-	    avWc[Xrect][Yrect] += w*inv_Lsq;
-	  }
-      }
-    }
-
-    /*
-  for(int xL=0; xL<L/2; xL++) 
-    for(int yL=0; yL<L/2; yL++){
-      for(int x=0; x<L; x++)
-	for(int y=0; y<L; y++){
-	  w = Complex(1.0,0.0);
-	  
-	  for(int dx=0; dx<xL; dx++)     w *=      Smeared[ (x+dx)%L ][y][0];
-	  for(int dy=0; dy<yL; dy++)     w *=      Smeared[ (x+xL)%L ][ (y+dy)%L ][1];
-	  for(int dx=xL-1; dx>-1; dx--)  w *= conj(Smeared[ (x+dx)%L ][ (y+yL)%L ][0]);
-	  for(int dy=yL-1; dy>-1; dy--)  w *= conj(Smeared[x][ (y+dy)%L ][1]);
-	  
-	  avWc[xL][yL] += inv_Lsq*w;
-	}
-    }
-    */
-  return;
-}
-
-//Polyakov loops. x is the spatial dim, y is the temporal dim.
-void polyakovLoops(Complex  gauge[L][L][D], Complex polyakov[L/2]){
-  
-  Complex w1, w2;
-  //Eack polyakov loop correlation is defined by its delta x value.
-  //We start at x0, separate to x0 + (x0+L/2-1), and loop over all
-  //x0=1 -> x0 = L/2-1.
-
-  //Starting x
-  for(int x=0; x<L/2; x++) {
-
-    //Loop over time
-    w1 = Complex(1.0,0.0);
-    for(int dy=0; dy<L; dy++) w1 *= gauge[x][dy][1];
-    
-    //x separation
-    for(int dx=0; dx<L/2; dx++) {
-      
-      w2 = Complex(1.0,0.0);
-      for(int dy=0; dy<L; dy++) w2 *= gauge[x + dx][dy][1];
-
-      polyakov[dx] += conj(w1)*w2/(1.0*L/2);
-      
-    }
-  }
-    
-  return;
-}
-
-
-double getTopCharge(Complex  gauge[L][L][D], param_t p){
-
-  Complex w;
-  double top = 0.0;  
-  Complex Smeared[L][L][D];
-  smearLink(Smeared,gauge,p);
-  
-  for(int x =0;x< L;x++)
-    for(int y =0;y< L;y++){
-      w = Smeared[x][y][0]*Smeared[(x + 1)%L][y][1]*conj(Smeared[x][(y+ 1)%L][0])*conj(Smeared[x][y][1]);
-      top += arg(w);  // -pi < arg(w) < pi  Geometric value is an integer.
-      //print local def here
-      //print arg(w) - [ arg(link1) + arg(link2) + c_arg(link3) + c_arg(link4)]
-    }
-  return top/TWO_PI;
-}
-
-
-//======================HMC===========================
-// momenta conj to theta.  dU/dtheta = i U = I * U
-
+// HMC Routines
+//-------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------
 
 int hmc(Complex gauge[L][L][D], param_t p, int iter) {
 
@@ -669,7 +505,6 @@ void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
 //
 // - p.beta d/dtheat[x][y][mu] (1 -   Real[U_P])  = p.betas (I U  - I U^*)/2  =-  p.beta imag[U] 
 
-
 void forceU(double fU[L][L][D], Complex gauge[L][L][D], param_t p) {
   
   Complex plaq0;
@@ -810,10 +645,10 @@ void update_gauge(Complex gauge[L][L][D], double mom[L][L][D], double dtau){
 
 
 // Do a parity flip based on eqn 4 of arXiv:1203.2560v2
-void DoPFlip(Complex gauge[L][L][D], param_t p) {
+void doParityFlip(Complex gauge[L][L][D], param_t p) {
   Complex parity_gauge[L][L][D];
-  for (int x = 0; x < L; x++) {
-    for (int y = 0; y < L; y++) {
+  for (int x=0; x<L; x++) {
+    for (int y=0; y<L; y++) {
       parity_gauge[(-x-1+2*L)%L][y][0] = conj(gauge[x][y][0]);
       parity_gauge[(-x+2*L)%L][y][1] = gauge[x][y][1];
     }
@@ -821,5 +656,4 @@ void DoPFlip(Complex gauge[L][L][D], param_t p) {
   copyLat(gauge, parity_gauge);
 }
 
-
-
+//-------------------------------------------------------------------------------

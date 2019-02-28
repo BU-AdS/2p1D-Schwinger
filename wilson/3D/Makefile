@@ -7,9 +7,8 @@ ARPACK_LIB= -L${ARPACK}/lib/ -larpack
 #============================================================
 
 TARGET = u1
-
-SOURCES = main.cpp
-OBJS    = main.o
+SOURCES = main.cpp 
+OBJS    = main.o 
 
 CXX=g++
 CXXFLAGS = -O3 -g -std=c++11 -I/Users/deanhowarth/2p1D-Schwinger/wilson ${ARPACK_FLAGS}
@@ -21,12 +20,12 @@ all: $(TARGET)
 u1: ${OBJS}
 	$(CXX) $(CXXFLAGS) -o u1 $(OBJS) ${ARPACK_LIB}
 
-main.o: main.cpp ${INCLUDES} Makefile
+main.o: main.cpp Makefile
 	${CXX} ${CXXFLAGS} -c main.cpp
 
 #============================================================
 
-ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES)
+ALL_SOURCES = Makefile $(SOURCES)
 
 clean:
 	rm -f $(TARGET) $(OBJS) core*
