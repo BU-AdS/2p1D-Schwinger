@@ -10,20 +10,19 @@
 
 using namespace std;
 
-
-double measPlaq(const Complex gauge[L][L][LZ][3], int z){
+double measPlaq(const Complex gauge[LX][LY][LZ][3], int z){
   
   double plaq = 0.0;
   
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      plaq += real(gauge[x][y][z][0]*gauge[ (x+1)%L ][y][z][1]*conj(gauge[x][ (y+1)%L ][z][0])*conj(gauge[x][y][z][1]));
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
+      plaq += real(gauge[x][y][z][0]*gauge[ (x+1)%LX ][y][z][1]*conj(gauge[x][ (y+1)%LY ][z][0])*conj(gauge[x][y][z][1]));
   
-  return plaq/(L*L);
+  return plaq/(LX*LY);
 }
 
 
-void writeGaugeLattice(const Complex gauge[L][L][LZ][3], string name){
+void writeGaugeLattice(const Complex gauge[LX][LY][LZ][3], string name){
 
   fstream outPutFile;
   outPutFile.open(name,ios::in|ios::out|ios::trunc);  
@@ -32,8 +31,8 @@ void writeGaugeLattice(const Complex gauge[L][L][LZ][3], string name){
   //Plaquette action header
   for(int z=0; z<LZ; z++) outPutFile << setprecision(20) <<  setw(20) << measPlaq(gauge, z) << endl;
   
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++)
 	for(int mu=0; mu<3; mu++)
 	  outPutFile << setprecision(20) <<  setw(20) <<  arg(gauge[x][y][z][mu]) << endl;
@@ -42,7 +41,7 @@ void writeGaugeLattice(const Complex gauge[L][L][LZ][3], string name){
   return;
 }
 
-void readGaugeLattice(Complex gauge[L][L][LZ][3], string name){
+void readGaugeLattice(Complex gauge[LX][LY][LZ][3], string name){
 
   fstream inPutFile;
   inPutFile.open(name);
@@ -54,8 +53,8 @@ void readGaugeLattice(Complex gauge[L][L][LZ][3], string name){
     getline(inPutFile, val);
     plaq[z] = stod(val);
   }
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++)
 	for(int mu=0; mu<3; mu++) {
 	  getline(inPutFile, val);
@@ -75,10 +74,10 @@ void readGaugeLattice(Complex gauge[L][L][LZ][3], string name){
   return;
 }
 
-void printLattice(Complex gauge[L][L][LZ][3]){
+void printLattice(Complex gauge[LX][LY][LZ][3]){
   
-  for(int x=0; x<L; x++)    
-    for(int y=0; y<L; y++)
+  for(int x=0; x<LX; x++)    
+    for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++) {
 	cout << "["<< x << "," << y << "," << z << "] = ";
 	cout << gauge[x][y][z][0] << " "
@@ -93,9 +92,9 @@ void printLattice(Complex gauge[L][L][LZ][3]){
 // Perimeter Law:  Wilson Loop = exp[ - 4 sigma L ]   sigma = - Log[ <cos(theta)> ]
 //=================================================================================
 
-void gaussStart(Complex gauge[L][L][LZ][3], param_t p){  
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
+void gaussStart(Complex gauge[LX][LY][LZ][3], param_t p){  
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++)
 	for(int mu=0; mu<3; mu++) {
 	  gauge[x][y][z][mu] = polar(1.0, TWO_PI*drand48());
@@ -104,10 +103,10 @@ void gaussStart(Complex gauge[L][L][LZ][3], param_t p){
   return;
 }  
 
-void coldStart(Complex gauge[L][L][LZ][3], param_t p){
+void coldStart(Complex gauge[LX][LY][LZ][3], param_t p){
 
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++) 
 	for(int mu=0; mu<3; mu++)
 	  gauge[x][y][z][mu] = Complex(1.0,0.0);
@@ -115,11 +114,11 @@ void coldStart(Complex gauge[L][L][LZ][3], param_t p){
 }  
 
 
-void gaussReal_F(double field[L][L][LZ][3]) {
+void gaussReal_F(double field[LX][LY][LZ][3]) {
   //normalized gaussian exp[ - phi*phi/2]  <phi|phi> = 1
   double r, theta, sum;
-  for(int x=0; x<L;x++)
-    for(int y=0; y<L; y++)
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++){
 	r = sqrt(-2.0*log(drand48()));
 	theta = TWO_PI*drand48();

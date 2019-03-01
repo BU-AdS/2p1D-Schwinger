@@ -5,7 +5,7 @@
 # to make writing new code simpler. Please please edit and remake
 # if you wish to vary L.
 
-mkdir -p {data/{rect,polyakov,data,creutz,top},gauge}
+mkdir -p {data/{rect,polyakov,data,creutz,top,pion},gauge}
 
 # The value of the coupling in the U(1) 2D theory
 BETA=$1
@@ -14,9 +14,9 @@ BETA=$1
 
 
 # The total number of HMC iterations to perform.
-HMC_ITER=100
+HMC_ITER=1000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=10
+HMC_THERM=25
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -24,7 +24,7 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # HMC time steps in the integration 
-HMC_NSTEP=25
+HMC_NSTEP=12
 # HMC trajectory time
 HMC_TAU=1.0
 
@@ -39,8 +39,8 @@ RNG_SEED=1234
 # DYNAMIC (1) or QUENCHED (0)
 DYN_QUENCH=1
 
-
-
+# Lock the Z gauge to unit (1) or allow z dynamics (0)
+ZLOCKED=0
 
 # Dynamic fermion parameters
 # Fermion mass

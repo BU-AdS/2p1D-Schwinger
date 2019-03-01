@@ -16,7 +16,7 @@ BETAZ=$2
 # The total number of HMC iterations to perform.
 HMC_ITER=20000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=50
+HMC_THERM=25
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=10
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -24,7 +24,7 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # Number of HMC steps in the integration 
-HMC_NSTEP=25
+HMC_NSTEP=20
 # HMC trajectory time
 HMC_TAU=1.0
 

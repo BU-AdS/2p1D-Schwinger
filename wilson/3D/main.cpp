@@ -7,7 +7,9 @@
 
 using namespace std;
 
-#define L 12
+//#define L 12
+#define LX 12
+#define LY 12
 #define LZ 5
 #define D 3
 #define PI 3.141592653589793
@@ -34,17 +36,17 @@ typedef complex<double> Complex;
 //----------------------------------------------------------------------------
 
 //Fermion dependent
-void trajectory(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
-		Complex phi[L][L][2], param_t p);
-void forceD(double fD[L][L][2], const Complex gauge[L][L][2],
-	    Complex phi[L][L][2], param_t p);
+void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
+		Complex phi[LX][LY][2], param_t p);
+void forceD(double fD[LX][LY][2], const Complex gauge[LX][LY][2],
+	    Complex phi[LX][LY][2], param_t p);
 
 //Fermion agnostic
-int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter);
-void forceU(double fU[L][L][LZ][D], const Complex gauge[L][L][LZ][D], param_t p);
-void update_mom(double fU[L][L][LZ][D], double fD[L][L][2],
-		double mom[L][L][LZ][D], param_t p, double dtau);
-void update_gauge(Complex gauge[L][L][LZ][D], double mom[L][L][LZ][D],
+int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter);
+void forceU(double fU[LX][LY][LZ][D], const Complex gauge[LX][LY][LZ][D], param_t p);
+void update_mom(double fU[LX][LY][LZ][D], double fD[LX][LY][2],
+		double mom[LX][LY][LZ][D], param_t p, double dtau);
+void update_gauge(Complex gauge[LX][LY][LZ][D], double mom[LX][LY][LZ][D],
 		  param_t p, double dtau);
 //----------------------------------------------------------------------------
 
@@ -56,7 +58,6 @@ double dHAve = 0.0;
 int main(int argc, char **argv) {
 
   param_t p;
-  p.Latsize = L;
   
   p.beta = atof(argv[1]);
   p.betaz = atof(argv[2]);
@@ -119,18 +120,18 @@ int main(int argc, char **argv) {
     for(int i = 0; i < histL; i++) histQ[z][i] = 0;
   }
   
-  Complex gauge[L][L][LZ][D];  
-  Complex gauge2D[L][L][2];
+  Complex gauge[LX][LY][LZ][D];  
+  Complex gauge2D[LX][LY][2];
   
-  double sigma[L/2];
-  Complex pLoops[L/2];
-  Complex wLoops[L/2][L/2];
+  double sigma[LX/2];
+  Complex pLoops[LX/2];
+  Complex wLoops[LX/2][LY/2];
   
-  for(int i=0; i<L/2; i++) {
-    sigma[i] = 0.0;
-    pLoops[i] = 0.0;
-    for(int j=0; j<L/2; j++) {
-      wLoops[i][j] = Complex(0.0,0.0);
+  for(int x=0; x<LX/2; x++) {
+    sigma[x] = 0.0;
+    pLoops[x] = 0.0;
+    for(int y=0; y<LY/2; y++) {
+      wLoops[x][y] = Complex(0.0,0.0);
     }
   }
   
@@ -269,7 +270,7 @@ int main(int argc, char **argv) {
 	extractLatSlice(gauge, gauge2D, z);
 	
 	//Measure Polyakov loops
-	for(int i=0; i<L/2; i++) pLoops[i] = 0.0;
+	for(int i=0; i<LX/2; i++) pLoops[i] = 0.0;
 	measPolyakovLoops(gauge2D, pLoops);	
 	
 	name = "data/polyakov/polyakov_Lz" + to_string(z);
@@ -278,7 +279,7 @@ int main(int argc, char **argv) {
 	sprintf(fname, "%s", name.c_str());
 	fp = fopen(fname, "a");
 	fprintf(fp, "%d ", iter + 1);
-	for(int size=1; size<L/2; size++)
+	for(int size=1; size<LX/2; size++)
 	  fprintf(fp, "%.16e %.16e ",
 		  real(pLoops[size]),
 		  imag(pLoops[size]) );
@@ -291,7 +292,7 @@ int main(int argc, char **argv) {
 	sprintf(fname, "%s", name.c_str());
 	fp = fopen(fname, "a");
 	fprintf(fp, "%d ", iter + 1);
-	for(int size=1; size<L/2-1; size++)
+	for(int size=1; size<LX/2-1; size++)
 	  fprintf(fp, "%.16e ",
 		  real(pLoops[size+1])/real(pLoops[size]));
 	fprintf(fp, "\n");
@@ -302,7 +303,7 @@ int main(int argc, char **argv) {
 	zeroWL(wLoops);
 	measWilsonLoops(gauge2D, wLoops, p);
 	
-	for(int size=1; size<L/2; size++) {
+	for(int size=1; size<LX/2; size++) {
 	  sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
 				   (real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
 	  
@@ -318,13 +319,13 @@ int main(int argc, char **argv) {
 	sprintf(fname, "%s", name.c_str());
 	fp = fopen(fname, "a");
 	fprintf(fp, "%d %.16e ", iter+1, -log(abs(plaq[z])) );
-	for(int size=2 ; size < L/2; size++)
+	for(int size=2; size<LX/2; size++)
 	  fprintf(fp, "%.16e ", sigma[size]);
 	fprintf(fp, "\n");
 	fclose(fp);
 	
-	for(int sizex=2; sizex<L/2; sizex++)
-	  for(int sizey=sizex-1; (sizey < L/2 && sizey <= sizex+1); sizey++) {
+	for(int sizex=2; sizex<LX/2; sizex++)
+	  for(int sizey=sizex-1; (sizey < LY/2 && sizey <= sizex+1); sizey++) {
 	    name = "data/rect/rectWL_Lz" + to_string(z);
 	    name += "_" + to_string(sizex) + "_" + to_string(sizey);
 	    constructName(name, p);
@@ -355,15 +356,15 @@ int main(int argc, char **argv) {
 
 //======================HMC===========================
 // momenta conj to theta.  dU/dtheta = i U = I * U
-int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter) {
+int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter) {
 
   int accept = 0;
   
-  double mom[L][L][LZ][D];
-  double mom2D[L][L][2];
-  Complex gaugeOld[L][L][LZ][D];
-  Complex gauge2D[L][L][2];
-  Complex phi[L][L][2], chi[L][L][2];
+  double mom[LX][LY][LZ][D];
+  double mom2D[LX][LY][2];
+  Complex gaugeOld[LX][LY][LZ][D];
+  Complex gauge2D[LX][LY][2];
+  Complex phi[LX][LY][2], chi[LX][LY][2];
   double H, Hold;
   
   copyLat(gaugeOld, gauge);
@@ -373,11 +374,11 @@ int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter) {
   H = 0.0;
   Hold = 0.0;
 
-  // init mom[L][L][LZ][D]  <mom^2> = 1;
+  // init mom[LX][LY][LZ][D]  <mom^2> = 1;
   gaussReal_F(mom); 
   
   if(p.dynamic == true) {    
-    //Create gaussian distributed fermion field chi. chi[L][L] E exp(-chi^* chi)
+    //Create gaussian distributed fermion field chi. chi[LX][LY] E exp(-chi^* chi)
     gaussComplex_F(chi, p);
     //Create pseudo fermion field, phi = D * chi
     extractLatSlice(gauge, gauge2D, (LZ-1)/2);
@@ -403,27 +404,28 @@ int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter) {
   return accept;
 }
 
-void trajectory(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
-		Complex phi[L][L][2], param_t p) {  
+void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
+		Complex phi[LX][LY][2], param_t p) {  
 
   double dtau = p.tau/p.nstep;
   double H = 0.0;
-  Complex guess[L][L][2];
+  Complex guess[LX][LY][2];
 #ifdef USE_ARPACK
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
-      for(int s=0; s<2; s++)
-	guess[x][y][s] = drand48();
+  gaussReal_F(guess);
+  //for(int x=0; x<LX; x++)
+  //for(int y=0; y<LY; y++)
+  //for(int s=0; s<2; s++)
+  //guess[x][y][s] = drand48();
 #endif
   
   //gauge force
-  double fU[L][L][LZ][D];
+  double fU[LX][LY][LZ][D];
   zeroLat(fU);
   //fermion fermion
-  double fD[L][L][2];
+  double fD[LX][LY][2];
   zeroField(fD);
   
-  Complex gauge2D[L][L][2];
+  Complex gauge2D[LX][LY][2];
 
   //Initial half step.
   //P_{1/2} = P_0 - dtau/2 * (fU + fD)
@@ -462,23 +464,8 @@ void trajectory(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
   //trajectory complete
 }
 
-// x+ = 0th dim
-// y+ = 1th dim
-//
-//   y+1<_______                              x-1/y+1<_____________>_x+1/y+1 
-//     |       ^				     |       ^      |
-//     |       |				     |       #      |
-//     |       |				     |       #      v
-//     v======>|				     v----->-#<-----|
-//     x/y    x+1                             x-1/y       x/y   x+1/y
-//     |       |				   
-//     ^       v				   
-// y-1 |<------|				
-//    x/y       x+1
-//
-// - p.beta d/dtheat[x][y][mu] (1-Real[U_P]) = p.betas (IU-IU^*)/2 = -p.beta*imag[U] 
 // All Wilson loops are computed clockwise.
-void forceU(double fU[L][L][LZ][D], const Complex gauge[L][L][LZ][D], param_t p) {
+void forceU(double fU[LX][LY][LZ][D], const Complex gauge[LX][LY][LZ][D], param_t p) {
 
   zeroLat(fU);
 
@@ -488,12 +475,12 @@ void forceU(double fU[L][L][LZ][D], const Complex gauge[L][L][LZ][D], param_t p)
   
   int xp1, xm1, yp1, ym1, zp1, zm1;
   
-  for(int x=0; x<L; x++) {
-    xp1 = (x+1)%L;
-    xm1 = (x-1+L)%L;
-    for(int y=0; y<L; y++) {
-      yp1 = (y+1)%L;
-      ym1 = (y-1+L)%L;
+  for(int x=0; x<LX; x++) {
+    xp1 = (x+1)%LX;
+    xm1 = (x-1+LX)%LX;
+    for(int y=0; y<LY; y++) {
+      yp1 = (y+1)%LY;
+      ym1 = (y-1+LY)%LY;
       for(int z=0; z<LZ; z++) {
 	zp1 = (z+1)%LZ;
 	zm1 = (z-1+LZ)%LZ;
@@ -574,36 +561,36 @@ void forceU(double fU[L][L][LZ][D], const Complex gauge[L][L][LZ][D], param_t p)
 //
 // Should optimise this to operate only on EVEN sites.
 
-void forceD(double fD[L][L][2], const Complex gauge[L][L][2], Complex phi[L][L][2], param_t p){
+void forceD(double fD[LX][LY][2], const Complex gauge[LX][LY][2], Complex phi[LX][LY][2], param_t p){
   
   if(p.dynamic == true) {
 
     zeroField(fD);
     
     //phip = (DD^dag)^-1 * phi
-    Complex phip[L][L][2];
+    Complex phip[LX][LY][2];
     zeroField(phip);
 
     //Ainv_psi inverts using the DdagD (g5Dg5D) operator, returns
     // phip = (D^-1 * Ddag^-1) phi = (D^-1 * g5 * D^-1 g5) phi.
-    Complex guess[L][L][2]; //Initial guess to CG
+    Complex guess[LX][LY][2]; //Initial guess to CG
     zeroField(guess);
     Ainv_psi(phip, phi, guess, gauge, p);
     
     //g5Dphi = g5D * phip
-    Complex g5Dphi[L][L][2];
+    Complex g5Dphi[LX][LY][2];
     zeroField(g5Dphi);
     g5Dpsi(g5Dphi, phip, gauge, p);
       
     int xp1, xm1, yp1, ym1;
     double r = 1.0;
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++) {
+    for(int x=0; x<LX; x++)
+      for(int y=0; y<LY; y++) {
 
-	xp1 = (x+1)%L;
-	yp1 = (y+1)%L;
-	ym1 = (y-1+L)%L;
-	xm1 = (x-1+L)%L;
+	xp1 = (x+1)%LX;
+	yp1 = (y+1)%LY;
+	xm1 = (x-1+LX)%LX;
+	ym1 = (y-1+LY)%LY;
 	
 	//mu = 0
 	//upper
@@ -643,11 +630,11 @@ void forceD(double fD[L][L][2], const Complex gauge[L][L][2], Complex phi[L][L][
 }
 
 //P_{k+1/2} = P_{k-1/2} - dtau * (fU + fD)
-void update_mom(double fU[L][L][LZ][D], double fD[L][L][2], double mom[L][L][LZ][D], param_t p, double dtau){
+void update_mom(double fU[LX][LY][LZ][D], double fD[LX][LY][2], double mom[LX][LY][LZ][D], param_t p, double dtau){
   
   //Always update from the 2D gauge fields
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++) 
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++) 
       for(int z=0; z<LZ; z++)
 	for(int mu=0; mu<2; mu++) {
 	  mom[x][y][z][mu] -= fU[x][y][z][mu]*dtau;	  
@@ -655,8 +642,8 @@ void update_mom(double fU[L][L][LZ][D], double fD[L][L][2], double mom[L][L][LZ]
   
   //Update from the fermion field if dynamic
   if(p.dynamic == true) {
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++)
+    for(int x=0; x<LX; x++)
+      for(int y=0; y<LY; y++)
 	for(int mu=0; mu<2; mu++) {
 	  mom[x][y][(LZ-1)/2][mu] += fD[x][y][mu]*dtau;
 	}  
@@ -665,11 +652,11 @@ void update_mom(double fU[L][L][LZ][D], double fD[L][L][2], double mom[L][L][LZ]
       
 
 //U_{k} = exp(i dtau P_{k-1/2}) * U_{k-1}
-void update_gauge(Complex gauge[L][L][LZ][D], double mom[L][L][LZ][D], param_t p, double dtau){
+void update_gauge(Complex gauge[LX][LY][LZ][D], double mom[LX][LY][LZ][D], param_t p, double dtau){
 
   //Always update from the 2D gauge fields
-  for(int x=0; x<L; x++)
-    for(int y=0; y<L; y++)
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++)
 	for(int mu=0; mu<2; mu++) {
 	  gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * dtau);
@@ -677,8 +664,8 @@ void update_gauge(Complex gauge[L][L][LZ][D], double mom[L][L][LZ][D], param_t p
   
   //Update from the extra dimension if not z locked.
   if(p.lockedZ == false) {
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++) 
+    for(int x=0; x<LX; x++)
+      for(int y=0; y<LY; y++) 
 	for(int z=0; z<LZ; z++)
 	  for(int mu=2; mu<D; mu++) {
 	    gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * dtau);

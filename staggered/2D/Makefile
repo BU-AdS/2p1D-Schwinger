@@ -2,7 +2,7 @@
 ARPACK=/usr/local/Cellar/arpack/3.6.2
 
 ARPACK_LIB= -L${ARPACK}/lib/ -larpack
-ARPACK_FLAGS= -DUSE_ARPACK
+#ARPACK_FLAGS= -DUSE_ARPACK
 
 #============================================================
 
@@ -10,7 +10,7 @@ TARGET = u1
 
 SOURCES = main.cpp
 OBJS    = main.o
-INC_PATH=-I/Users/deanhowarth/2p1D-Schwinger/include
+INC_PATH=-I../../include
 
 CXX=g++
 CXXFLAGS = -O3 -g -std=c++11 ${INC_PATH} ${ARPACK_FLAGS}
