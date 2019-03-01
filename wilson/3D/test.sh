@@ -16,7 +16,7 @@ BETAZ=$2
 # The total number of HMC iterations to perform.
 HMC_ITER=20000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=500
+HMC_THERM=50
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=10
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.

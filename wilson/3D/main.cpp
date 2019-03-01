@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define L 8
+#define L 12
 #define LZ 5
 #define D 3
 #define PI 3.141592653589793
@@ -22,25 +22,26 @@ typedef complex<double> Complex;
 #include "latHelpers.h"
 #include "latHelpers3D.h"
 #include "measurementHelpers.h"
-#include "wFermionHelpers.h"
+#include "measurementHelpers3D.h"
+#include "fermionHelpers.h"
 #include "dOpHelpers.h"
 
 #ifdef USE_ARPACK
-#include "arpack_interface.h"
+#include "arpack_interface_wilson.h"
 #endif
 
 //HMC
 //----------------------------------------------------------------------------
-int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter);
-double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
-	     Complex phi[L][L][2], param_t p, bool postStep);
-double calcH2D(double mom[L][L][2], Complex gauge[L][L][2],
-	       Complex phi[L][L][2], param_t p, bool postStep);
+
+//Fermion dependent
 void trajectory(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
 		Complex phi[L][L][2], param_t p);
-void forceU(double fU[L][L][LZ][D], const Complex gauge[L][L][LZ][D], param_t p);
 void forceD(double fD[L][L][2], const Complex gauge[L][L][2],
 	    Complex phi[L][L][2], param_t p);
+
+//Fermion agnostic
+int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter);
+void forceU(double fU[L][L][LZ][D], const Complex gauge[L][L][LZ][D], param_t p);
 void update_mom(double fU[L][L][LZ][D], double fD[L][L][2],
 		double mom[L][L][LZ][D], param_t p, double dtau);
 void update_gauge(Complex gauge[L][L][LZ][D], double mom[L][L][LZ][D],
@@ -71,7 +72,6 @@ int main(int argc, char **argv) {
   p.alpha = atof(argv[11]);  
   long iseed = (long)atoi(argv[12]);
   srand48(iseed);
-
   
   if(atoi(argv[13]) == 0) 
     p.dynamic = false;
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
       extractLatSlice(gauge, gauge2D, z);
       
       //Topology
-      top = getTopCharge(gauge2D, p);
+      top = measTopCharge(gauge2D, p);
       top_int[z] = round(top);
       name = "data/top/top_charge_Lz" + to_string(z);
       constructName(name, p);
@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
 	
 	//Measure Polyakov loops
 	for(int i=0; i<L/2; i++) pLoops[i] = 0.0;
-	calcPolyakovLoops(gauge2D, pLoops);	
+	measPolyakovLoops(gauge2D, pLoops);	
 	
 	name = "data/polyakov/polyakov_Lz" + to_string(z);
 	constructName(name, p);
@@ -300,7 +300,7 @@ int main(int argc, char **argv) {
 
 	//Creutz Ratios
 	zeroWL(wLoops);
-	calcWilsonLoops(gauge2D, wLoops, p);
+	measWilsonLoops(gauge2D, wLoops, p);
 	
 	for(int size=1; size<L/2; size++) {
 	  sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
@@ -353,66 +353,8 @@ int main(int argc, char **argv) {
 }
 
 
-//======================================================================
-//   Creutz     exp[ -sigma L^2] exp[ -sigma(L-1)(L-1)]
-//   ratio:    ---------------------------------------  = exp[ -sigma]
-//              exp[ -sigma (L-1)L] exp[-sigma L(L-1)]
-//======================================================================
-/*
-void areaLaw(Complex gauge[L][L][LZ][D], Complex avWc[L/2][L/2][LZ], param_t p){
-  
-  Complex w;
-  int p1, p2;
-  double inv_Lsq = 1.0/(L*L);
-  
-  //Loop over z planes
-  for(int z=0; z<LZ; z++) {
-
-    Complex smeared[L][L][2];
-    Complex gauge2D[L][L][2];
-    extractLatSlice(gauge, gauge2D, z);
-    smearLink(smeared, gauge2D, p);
-    
-    //Loop over all X side sizes of rectangle 
-    for(int Xrect=1; Xrect<L/2; Xrect++) {
-
-      //Loop over all Y side sizes of rectangle
-      for(int Yrect=1; Yrect<L/2; Yrect++) {
-
-	//Loop over all x,y
-	for(int x=0; x<L; x++)
-	  for(int y=0; y<L; y++){
-	    
-	    w = Complex(1.0,0.0);
-	    
-	    //Move in +x up to p1.
-	    for(int dx=0; dx<Xrect; dx++)    w *= smeared[ (x+dx)%L ][y][0];
-	    
-	    //Move in +y up to p2 (p1 constant)
-	    p1 = (x + Xrect)%L;
-	    for(int dy=0; dy<Yrect; dy++)    w *= smeared[p1][ (y+dy)%L ][1];
-	    
-	    //Move in -x from p1 to (p2 constant)
-	    p2 = (y + Yrect)%L;
-	    for(int dx=Xrect-1; dx>=0; dx--)  w *= conj(smeared[ (x+dx)%L ][p2][0]);
-	    
-	    //Move in -y from p2 to y
-	    for(int dy=Yrect-1; dy>=0; dy--)  w *= conj(smeared[x][ (y+dy)%L ][1]);
-	    avWc[Xrect][Yrect][z] += w*inv_Lsq;
-	  }
-      }
-    }
-    
-  }
-  
-  return;
-}
-*/
-
 //======================HMC===========================
 // momenta conj to theta.  dU/dtheta = i U = I * U
-
-
 int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter) {
 
   int accept = 0;
@@ -422,8 +364,8 @@ int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter) {
   Complex gaugeOld[L][L][LZ][D];
   Complex gauge2D[L][L][2];
   Complex phi[L][L][2], chi[L][L][2];
-  double H, Hold, rmsq;
-
+  double H, Hold;
+  
   copyLat(gaugeOld, gauge);
   zeroLat(mom); 
   zeroField(phi);
@@ -437,37 +379,21 @@ int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter) {
   if(p.dynamic == true) {    
     //Create gaussian distributed fermion field chi. chi[L][L] E exp(-chi^* chi)
     gaussComplex_F(chi, p);
-    //Create pseudo fermion field phi = D chi
+    //Create pseudo fermion field, phi = D * chi
     extractLatSlice(gauge, gauge2D, (LZ-1)/2);
     g5Dpsi(phi, chi, gauge2D, p);    
   }
   
-  if (iter >= p.therm) {
-    //extractLatSlice(gauge, gauge2D, (LZ-1)/2);
-    //extractLatSlice(mom, mom2D, (LZ-1)/2);
-    //Hold = calcH2D(mom2D, gauge2D, chi, p, false);
-    Hold = calcH(mom, gauge, chi, p, false);    
-  }
-  
+  if (iter >= p.therm) Hold = measAction(mom, gauge, chi, p, false);    
   trajectory(mom, gauge, phi, p);
+  if (iter >= p.therm) H = measAction(mom, gauge, phi, p, true);
   
-  if (iter >= p.therm) {
-    //extractLatSlice(gauge, gauge2D, (LZ-1)/2);
-    //extractLatSlice(mom, mom2D, (LZ-1)/2);
-    //H = calcH2D(mom2D, gauge2D, phi, p, true);
-    H = calcH(mom, gauge, phi, p, true);
-  }
-  //cout << "Iter = " << iter << " H = " << H << " Hold = " << Hold << " exp(-(H-Hold)) = " << exp(-(H-Hold)) << endl;
   if (iter >= 2*p.therm) {      
     hmccount++;
     expdHAve += exp(-(H-Hold));
     dHAve += (H-Hold);
   }
-  //  cout << " H = "<< H << endl;   
-  //  if(iter%100 == 0) printf("   Hold = %.15g, Final H = %.15g, dH = H - Hold = %.15g, frac = %.10g\n",
-  //			    Hold, H, H-Hold, 1.0 - Hold/H);
-  // checkRev(mom, phi, chi, Hold, p);     // Check reversibility
-
+  
   // Metropolis accept/reject step
   if (iter >= p.therm) {    
     if ( drand48() > exp(-(H-Hold)) ) copyLat(gauge,gaugeOld);
@@ -475,131 +401,6 @@ int hmc(Complex gauge[L][L][LZ][D], param_t p, int iter) {
   }
   
   return accept;
-}
-
-double sum0 = 0.0;
-int count0 = 0;
-
-/*=================
-  
-  H(mom,theta) = \sum_i mom^2(i)/2 + V(theta_i)  
-  = \sum_i mom^2(i)/2 + beta*\sum_P real(1 - U_P)
-  
-  dtheta/dt = dH/dmom = mom
-  dmom/dt = - dH/theta = F
-  
-  F = dmon/dt = dt^2/dtheta  (Newton's Law)
-  
-  ===============*/
-
-double calcH(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
-	     Complex phi[L][L][2], param_t p, bool postStep) {
-  
-  double H = 0.0;
-  double Hmom = 0.0, Hgauge = 0.0, Hferm = 0.0;
-  Complex plaq;
-  Complex phitmp[L][L][2];
-  Complex gauge2D[L][L][2];
-  double beta  = p.beta;
-  double betaz = p.betaz;
-  
-  for(int x=0; x<L;x++)
-    for(int y=0; y<L; y++)
-      for(int z=0; z<LZ; z++) {
-
-	//x, y, -x, -y
-	plaq = gauge[x][y][z][0]*gauge[ (x+1)%L ][y][z][1]*conj(gauge[x][ (y+1)%L ][z][0])*conj(gauge[x][y][z][1]);
-	Hgauge += beta*real(1.0 - plaq);
-	
-	if(z != LZ-1) {
-	  //x, z, -x, -z
-	  plaq = gauge[x][y][z][0] * cUnit * conj(gauge[x][y][ (z+1)%LZ ][0]) * cUnit;
-	  Hgauge += betaz*real(1.0 - plaq);
-	  
-	  //y, z, -y, -z
-	  plaq = gauge[x][y][z][1] * cUnit * conj(gauge[x][y][ (z+1)%LZ ][1]) * cUnit;
-	  Hgauge += betaz*real(1.0 - plaq);	
-	}
-	
-	//No gauge force in z dim.
-	for(int mu=0; mu<2; mu++){	  
-	  Hmom += 0.5 * mom[x][y][z][mu]*mom[x][y][z][mu];	  
-	  // We do not want the spurious extra dim momentum terms on
-	  // the last slice.
-	  //if(z == LZ-1 && mu == D-1) {
-	  //CHECK
-	  //Hmom -= mom[x][y][z][mu]*mom[x][y][z][mu]/2.0;
-	  //}
-	}
-      }
-  
-  if(p.dynamic == true) {
-
-    //cout << "Before Fermion force H = " << H << endl;
-    Complex scalar = Complex(0.0,0.0);
-    zeroField(phitmp);    
-    if(postStep) {
-      extractLatSlice(gauge, gauge2D, (LZ-1)/2);
-      Ainv_psi(phitmp, phi, phitmp, gauge2D, p);
-    }
-    else copyField(phitmp, phi);
-    
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++){
-	for(int s=0; s<2; s++){
-	  scalar += conj(phi[x][y][s])*phitmp[x][y][s];
-	}
-      }    
-    
-    Hferm += real(scalar);
-    //cout << "After Fermion Force H  = " << H << endl;
-    
-  }
-  //cout << "Hmom = " << Hmom << " Hgauge = " << Hgauge << " Hferm = " << Hferm << endl;
-  return Hmom + Hgauge + Hferm;
-}
-
-double calcH2D(double mom[L][L][2], Complex gauge[L][L][2],
-	       Complex phi[L][L][2], param_t p, bool postStep) {
-  
-  double H = 0.0;
-  double Hmom = 0.0, Hgauge = 0.0, Hferm = 0.0;
-  Complex plaq;
-  Complex phitmp[L][L][2];
- 
-  for(int x=0; x<L;x++)
-    for(int y=0; y<L; y++){
-      
-      plaq = gauge[x][y][0]*gauge[ (x+1)%L ][y][1]*conj(gauge[x][ (y+1)%L ][0])*conj(gauge[x][y][1]);
-      Hgauge += p.beta*real(1.0 - plaq);
-      
-      for(int mu=0; mu<2; mu++){
-	Hmom += 0.5 * mom[x][y][mu] * mom[x][y][mu];
-      }
-    }
-  H = Hmom + Hgauge;
-  
-  if(p.dynamic == true) {
-
-    //cout << "Before Fermion force H = " << H << endl;
-    Complex scalar = Complex(0.0,0.0);
-    zeroField(phitmp);
-    if(postStep) Ainv_psi(phitmp, phi, phitmp, gauge, p);
-    else copyField(phitmp, phi);
-    
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++){
-	for(int s=0; s<2; s++){
-	  scalar += conj(phi[x][y][s])*phitmp[x][y][s];
-	}
-      }    
-    
-    Hferm += real(scalar);
-    //cout << "After Fermion Force H  = " << H << endl;
-    
-  }
-  //cout << "Hmom = " << Hmom << " Hgauge = " << Hgauge << " Hferm = " << Hferm << endl;  
-  return Hmom + Hgauge + Hferm;
 }
 
 void trajectory(double mom[L][L][LZ][D], Complex gauge[L][L][LZ][D],
@@ -794,21 +595,6 @@ void forceD(double fD[L][L][2], const Complex gauge[L][L][2], Complex phi[L][L][
     zeroField(g5Dphi);
     g5Dpsi(g5Dphi, phip, gauge, p);
       
-    //URBACH calling sequence.
-    // 1) Generate momenta in gp array, add to Hold.
-    // 2) Generate random fermion field \xi (\xi = g_X in URBACH), add to Hold.
-    // 3) Compute (gamma5 D) \xi = \phi (\phi = g_fermion in URBACH)
-    // 4) Enter Leapfrog
-    //     4.1) Initial half step.
-    //          update_momentum:
-    //          i) Run CG with \phi as input, place result in \xi, g5Dg5D as operator
-    //          ii) Apply g5D to result.
-    //          iii) Compute momentum update
-    //     4.2) Run through leapfrog sequence.
-    //     4.3) Final half step.
-    // 5) Compute final energy.
-    // 6) Accept/Reject
-    
     int xp1, xm1, yp1, ym1;
     double r = 1.0;
     for(int x=0; x<L; x++)
@@ -834,7 +620,7 @@ void forceD(double fD[L][L][2], const Complex gauge[L][L][2], Complex phi[L][L][
 				(conj(phip[x][y][0]) * (r*g5Dphi[xp1][y][0] -   g5Dphi[xp1][y][1]) +
 				 conj(phip[x][y][1]) * (  g5Dphi[xp1][y][0] - r*g5Dphi[xp1][y][1])))
 			       )
-			    );	
+			    );
 	
 	//mu = 1
 	//upper
@@ -852,7 +638,6 @@ void forceD(double fD[L][L][2], const Complex gauge[L][L][2], Complex phi[L][L][
 				 conj(phip[x][y][1]) * (I*g5Dphi[x][yp1][0] - r*g5Dphi[x][yp1][1])))
 			       )
 			    );
-	
       }
   }
 }

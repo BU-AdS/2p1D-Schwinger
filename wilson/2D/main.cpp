@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define L 32
+#define L 16
 #define D 2
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
@@ -19,22 +19,24 @@ typedef complex<double> Complex;
 #include "utils.h"
 #include "latHelpers.h"
 #include "measurementHelpers.h"
-#include "wFermionHelpers.h"
+#include "fermionHelpers.h"
 #include "dOpHelpers.h"
 
 #ifdef USE_ARPACK
-#include "arpack_interface.h"
+#include "arpack_interface_wilson.h"
 #endif
 
 //HMC routines defined by dimension, so kept in main file
 //----------------------------------------------------------------------------
-int hmc(Complex gauge[L][L][D], param_t p, int iter);
-double calcH(double mom[L][L][D], Complex gauge[L][L][D],
-	     Complex phi[L][L][2], param_t p, bool postStep);
+
+//Fermion dependent
 void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
 		Complex phi[L][L][2], param_t p, int iter);
+void forceD(double fU[L][L][D], Complex gauge[L][L][D], Complex phi[L][L][2],param_t p);
+
+//Fermion agnostic
+int hmc(Complex gauge[L][L][D], param_t p, int iter);
 void forceU(double fU[L][L][D], Complex gauge[L][L][D], param_t p);
-void forceD(double fU[L][L][D], Complex gauge[L][L][D], Complex phi[L][L][2], param_t p);
 void update_mom(double fU[L][L][D], double fD[L][L][D], double mom[L][L][D], double dtau);
 void update_gauge(Complex gauge[L][L][D], double mom[L][L][D], double dtau);
 void doParityFlip(Complex gauge[L][L][D], param_t p);
@@ -56,7 +58,6 @@ int main(int argc, char **argv) {
   p.skip = atoi(argv[4]);
   p.chkpt = atoi(argv[5]);
   p.checkpointStart = atoi(argv[6]);  
-  if(p.checkpointStart > 0) p.iterHMC += p.checkpointStart;
   p.nstep = atoi(argv[7]);
   p.tau = atof(argv[8]);
   
@@ -97,7 +98,6 @@ int main(int argc, char **argv) {
   double plaqSum = 0.0;
   int index = 0;
   for(int i = 0; i < histL; i++) histQ[i] = 0;
-
   
   Complex gauge[L][L][D];
   zeroLat(gauge);  
@@ -107,8 +107,7 @@ int main(int argc, char **argv) {
       gaugeFree[L][L][0] = cUnit;
       gaugeFree[L][L][1] = cUnit;
     }
-  
-  
+    
   double sigma[L/2];
   Complex pLoops[L/2];
   Complex wLoops[L/2][L/2];  
@@ -178,7 +177,7 @@ int main(int argc, char **argv) {
 
     //Measure the topological charge
     //------------------------------
-    top = getTopCharge(gauge, p);
+    top = measTopCharge(gauge, p);
     top_int = round(top);
     name = "data/top/top_charge";
     constructName(name, p);
@@ -240,7 +239,7 @@ int main(int argc, char **argv) {
 	
       //Polyakov wLoops      
       for(int a=0; a<L/2; a++) pLoops[a] = 0.0;
-      calcPolyakovLoops(gauge, pLoops);
+      measPolyakovLoops(gauge, pLoops);
       
       name = "data/polyakov/polyakov";
       constructName(name, p);
@@ -271,7 +270,7 @@ int main(int argc, char **argv) {
       
       // Creutz Ratios
       zeroWL(wLoops);
-      calcWilsonLoops(gauge, wLoops, p);
+      measWilsonLoops(gauge, wLoops, p);
       
       //Compute string tension
       for(int size=1; size<L/2; size++) {
@@ -335,7 +334,7 @@ int hmc(Complex gauge[L][L][D], param_t p, int iter) {
   double mom[L][L][D];
   Complex gaugeOld[L][L][D];
   Complex phi[L][L][2], chi[L][L][2];
-  double H, Hold, rmsq;
+  double H, Hold;
 
   copyLat(gaugeOld,gauge);
   zeroLat(mom); 
@@ -354,24 +353,19 @@ int hmc(Complex gauge[L][L][D], param_t p, int iter) {
     g5Dpsi(phi, chi, gauge, p);    
   }
   
-  if (iter >= p.therm) Hold = calcH(mom, gauge, chi, p, false);
+  if (iter >= p.therm) Hold = measAction(mom, gauge, chi, p, false);
   trajectory(mom, gauge, phi, p, iter);
-  if (iter >= p.therm) H = calcH(mom, gauge, phi, p, true);
+  if (iter >= p.therm) H = measAction(mom, gauge, phi, p, true);
   
-  //cout << "Iter = " << iter << " H = " << H << " Hold = " << Hold << " exp(-(H-Hold)) = " << exp(-(H-Hold)) << endl;
   if (iter >= 2*p.therm) {      
     expcount++;
     expdHAve += exp(-(H-Hold));
     dHAve += (H-Hold);
   }
-  //  cout << " H = "<< H << endl;   
-  //  if(iter%100 == 0) printf("   Hold = %.15g, Final H = %.15g, dH = H - Hold = %.15g, frac = %.10g\n",
-  //			    Hold, H, H-Hold, 1.0 - Hold/H);
-  // checkRev(mom, phi, chi, Hold, p);     // Check reversibility
 
   // Metropolis accept/reject step
   if (iter >= p.therm) {    
-    if ( drand48() > exp(-(H-Hold)) ) copyLat(gauge,gaugeOld);
+    if ( drand48() > exp(-(H-Hold)) ) copyLat(gauge, gaugeOld);
     else accept = 1;
   }
   
@@ -380,61 +374,6 @@ int hmc(Complex gauge[L][L][D], param_t p, int iter) {
 
 double sum0 = 0.0;
 int count0 = 0;
-
-/*=================
-  
-  H(mom,theta) = \sum_i mom^2(i)/2 + V(theta_i)  
-  = \sum_i mom^2(i)/2 + beta*\sum_P real(1 - U_P)
-  
-  dtheta/dt = dH/dmom = mom
-  dmom/dt = - dH/theta = F
-  
-  F = dmon/dt = dt^2/dtheta  (Newton's Law)
-  
-  ===============*/
-
-double calcH(double mom[L][L][D], Complex gauge[L][L][D],
-	     Complex phi[L][L][2], param_t p, bool postStep) {
-  
-  double H = 0.0;
-  double Hmom = 0.0, Hgauge = 0.0, Hferm = 0.0;
-  Complex plaq;
-  Complex phitmp[L][L][2];
- 
-  for(int x=0; x<L;x++)
-    for(int y=0; y<L; y++){
-      
-      plaq = gauge[x][y][0]*gauge[ (x+1)%L ][y][1]*conj(gauge[x][ (y+1)%L ][0])*conj(gauge[x][y][1]);
-      Hgauge += p.beta*real(1.0 - plaq);
-      
-      for(int mu=0; mu<D; mu++){
-	Hmom += 0.5 * mom[x][y][mu] * mom[x][y][mu];
-      }
-    }
-  H = Hmom + Hgauge;
-     
-  if(p.dynamic == true) {
-
-    //cout << "Before Fermion force H = " << H << endl;
-    Complex scalar = Complex(0.0,0.0);
-    zeroField(phitmp);
-    if(postStep) Ainv_psi(phitmp, phi, phitmp, gauge, p);
-    else copyField(phitmp, phi);
-    
-    for(int x=0; x<L; x++)
-      for(int y=0; y<L; y++){
-	for(int s=0; s<2; s++){
-	  scalar += conj(phi[x][y][s])*phitmp[x][y][s];
-	}
-      }    
-    
-    Hferm += real(scalar);
-    //cout << "After Fermion Force H  = " << H << endl;
-    
-  }
-  //cout << "Hmom = " << Hmom << " Hgauge = " << Hgauge << " Hferm = " << Hferm << endl;  
-  return Hmom + Hgauge + Hferm;
-}
 
 void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
 		Complex phi[L][L][2], param_t p, int iter) {  
@@ -489,23 +428,7 @@ void trajectory(double mom[L][L][D], Complex gauge[L][L][D],
   //trajectory complete
 }
 
-// x+ = 0th dim
-// y+ = 1th dim
-//
-//   y+1<_______                              x-1/y+1<_____________>_x+1/y+1 
-//     |       ^				     |       ^      |
-//     |       |				     |       #      |
-//     |       |				     |       #      v
-//     v======>|				     v----->-#<-----|
-//     x/y    x+1                             x-1/y       x/y   x+1/y
-//     |       |				   
-//     ^       v				   
-// y-1 |<------|				
-//    x/y       x+1
-//
-// - p.beta d/dtheat[x][y][mu] (1 -   Real[U_P])  = p.betas (I U  - I U^*)/2  =-  p.beta imag[U] 
-
-void forceU(double fU[L][L][D], Complex gauge[L][L][D], param_t p) {
+void forceU(double fU[L][L][2], Complex gauge[L][L][2], param_t p) {
   
   Complex plaq0;
   Complex plaq;
@@ -541,7 +464,7 @@ void forceU(double fU[L][L][D], Complex gauge[L][L][D], param_t p) {
 //
 // *****  Should optimize this to operate only on EVEN sites. ****
 
-void forceD(double fD[L][L][D], Complex gauge[L][L][D], Complex phi[L][L][2], param_t p){
+void forceD(double fD[L][L][2], Complex gauge[L][L][2], Complex phi[L][L][2], param_t p){
 
   if(p.dynamic == true) {
 
@@ -562,21 +485,6 @@ void forceD(double fD[L][L][D], Complex gauge[L][L][D], Complex phi[L][L][2], pa
     zeroField(g5Dphi);
     g5Dpsi(g5Dphi, phip, gauge, p);
       
-    //URBACH calling sequence.
-    // 1) Generate momenta in gp array, add to Hold.
-    // 2) Generate random fermion field \xi (\xi = g_X in URBACH), add to Hold.
-    // 3) Compute (gamma5 D) \xi = \phi (\phi = g_fermion in URBACH)
-    // 4) Enter Leapfrog
-    //     4.1) Initial half step.
-    //          update_momentum:
-    //          i) Run CG with \phi as input, place result in \xi, g5Dg5D as operator
-    //          ii) Apply g5D to result.
-    //          iii) Compute momentum update
-    //     4.2) Run through leapfrog sequence.
-    //     4.3) Final half step.
-    // 5) Compute final energy.
-    // 6) Accept/Reject
-    
     int xp1, xm1, yp1, ym1;
     double r = 1.0;
     for(int x=0; x<L;x++)

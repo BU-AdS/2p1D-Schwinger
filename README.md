@@ -7,12 +7,8 @@ to the central slice.
 ## Features and Usage
 
 The code is 'built for comfort, not for speed'. No attempts have been made to
-optimise the code for performance, nor have has any reasonable effort been
-made to consolidate repetitious functions or code blocks. Each fermion action
-(and each instance in 2D or 3D) is given its own directory with its own
-linear algebra helper functions, main.cpp file, external library interface,
-and Makefile. Code optimisations are a low priority, but code consolidation
-will occur when development permits.
+optimise the code for performance. Each fermion action (and each instance in
+2D or 3D) is given its own directory with its own main.cpp file and Makefile.
 
 ### Actions
 

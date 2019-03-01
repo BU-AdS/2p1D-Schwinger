@@ -14,9 +14,9 @@ BETA=$1
 
 
 # The total number of HMC iterations to perform.
-HMC_ITER=50000
+HMC_ITER=100
 # The number of HMC iterations for thermalisation.
-HMC_THERM=500
+HMC_THERM=10
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -24,7 +24,7 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # HMC time steps in the integration 
-HMC_NSTEP=16
+HMC_NSTEP=25
 # HMC trajectory time
 HMC_TAU=1.0
 
@@ -37,7 +37,7 @@ APE_ALPHA=0.5
 RNG_SEED=1234
 
 # DYNAMIC (1) or QUENCHED (0)
-DYN_QUENCH=0
+DYN_QUENCH=1
 
 
 
