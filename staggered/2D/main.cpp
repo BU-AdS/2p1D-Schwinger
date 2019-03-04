@@ -475,7 +475,7 @@ void forceD(double fD[LX][LY][D], Complex gauge[LX][LY][D], Complex chi[LX][LY],
     zeroField(Dchitmp);
     zeroLat(fD);
     
-    Ainv_psi(chitmp, chi, chitmp, gauge, p); // note chitmp = 0 for ODD
+    Ainvpsi(chitmp, chi, chitmp, gauge, p); // note chitmp = 0 for ODD
     Dpsi(Dchitmp, chitmp, gauge, p); // restrict to Dslash, m = 0
     
     for(int x=0; x<LX; x++)

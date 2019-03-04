@@ -10,12 +10,14 @@ using namespace std;
 #define LX 16
 #define LY 32
 #define D 2
+#define NEV 24
+#define NKR 32
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
 
 typedef complex<double> Complex;
-#define I Complex(0,1)
-#define cUnit Complex(1,0)
+#define I Complex(0,1.0)
+#define cUnit Complex(1.0,0)
 
 #include "utils.h"
 #include "latHelpers.h"
@@ -33,7 +35,8 @@ typedef complex<double> Complex;
 //Fermion dependent
 void trajectory(double mom[LX][LY][D], Complex gauge[LX][LY][D],
 		Complex phi[LX][LY][2], param_t p, int iter);
-void forceD(double fU[LX][LY][D], Complex gauge[LX][LY][D], Complex phi[LX][LY][2],param_t p);
+void forceD(double fU[LX][LY][D], Complex gauge[LX][LY][D], Complex phi[LX][LY][2],
+	    Complex guess[LX][LY][2], param_t p);
 
 //Fermion agnostic
 int hmc(Complex gauge[LX][LY][D], param_t p, int iter);
@@ -78,14 +81,14 @@ int main(int argc, char **argv) {
   p.eps = atof(argv[15]);
   
   //Arpack params
-  p.nKv = atoi(argv[16]);
-  p.nEv = atoi(argv[17]);
-  p.arpackTol = atof(argv[18]);
-  p.arpackMaxiter = atoi(argv[19]);
-  p.polyACC = atoi(argv[20]);
-  p.amax = atof(argv[21]);
-  p.amin = atof(argv[22]);
-  p.n_poly = atoi(argv[23]);
+  p.nKr = NKR;
+  p.nEv = NEV;
+  p.arpackTol = atof(argv[16]);
+  p.arpackMaxiter = atoi(argv[17]);
+  p.polyACC = atoi(argv[18]);
+  p.amax = atof(argv[19]);
+  p.amin = atof(argv[20]);
+  p.n_poly = atoi(argv[21]);
   
   //Topology
   double top = 0.0;
@@ -125,8 +128,13 @@ int main(int argc, char **argv) {
   Complex propDn[LX][LY][2];
   //fermion prop CG guess
   Complex propGuess[LX][LY][2];
-
+  //Deflation eigenvectors
+  Complex defl_evecs[NEV][LX][LY][2];
+  //Deflation eigenvalues
+  Complex defl_evals[NEV];
+  
   double pion_corr[LY];
+  double vacuum_trace[2] = {0.0, 0.0};
   
   int count = 0;
   string name;
@@ -144,6 +152,7 @@ int main(int argc, char **argv) {
   double time0 = -((double)clock());
   int iter_offset = 0;
   int iter = 0;
+  cout << setprecision(16);
   
   if(p.checkpointStart > 0) {
 
@@ -162,7 +171,7 @@ int main(int argc, char **argv) {
       //Perform HMC step
       accept = hmc(gauge, p, iter);
       double time = time0 + clock();
-      cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
+      cout << fixed << iter+1 << " "; //Iteration
       cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
     }
     
@@ -170,7 +179,7 @@ int main(int argc, char **argv) {
       //Perform HMC step with accept/reject
       accept = hmc(gauge, p, iter);
       double time = time0 + clock();
-      cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
+      cout << fixed << iter+1 << " "; //Iteration
       cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
     }
     iter_offset = 2*p.therm;    
@@ -339,36 +348,49 @@ int main(int argc, char **argv) {
       zeroField(source);
       zeroField(Dsource);
       zeroField(propUp);
+      zeroField(propGuess);
       source[0][0][0] = cUnit;
-      //g5 * D * up
+      // up -> (g5Dg5) * up
+      g5psi(source);
       g5Dpsi(Dsource, source, gauge, p);
-      //(g5 * D * g5 * D)^-1 * (g5 * D) up = (g5 * D)^-1 * dn
-      //                                   =  D^-1 * g5 * dn
-      Ainv_psi(propUp, Dsource, propGuess, gauge, p);
-      
+
+#ifdef USE_ARPACK
+      arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
+#endif
+      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+      // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up
+      Ainvpsi(propUp, Dsource, propGuess, gauge, p);
+
       //Down type source
       zeroField(source);
       zeroField(Dsource);
       zeroField(propDn);
-      source[0][0][1] = cUnit;
-      // (g5Dg5) * dn
+      source[0][0][1] = cUnit;	    
+      
+      // dn -> (g5Dg5) * dn
       g5psi(source);
       g5Dpsi(Dsource, source, gauge, p);
-      //(g5Dg5D)^-1 * (g5Dg5) * dn = D^-1 * dn
-      Ainv_psi(propDn, Dsource, propGuess, gauge, p);
 
+      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+      // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn
+      Ainvpsi(propDn, Dsource, propGuess, gauge, p);
+      
       //Let y be the 'time' dimension
+      double corr = 0.0;
       for(int y=0; y<LY; y++) {
 	//initialise
 	pion_corr[y] = 0.0;
-	//Loop over space and spin
+	//Loop over space and spin, fold propagator
 	for(int x=0; x<LX; x++)
-	  for(int s=0; s<2; s++)
-	    pion_corr[y] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
-			     conj(propDn[x][y][1]) * propDn[x][y][1] +
-			     conj(propUp[x][y][0]) * propUp[x][y][0] +
-			     conj(propUp[x][y][1]) * propUp[x][y][1]).real();
+	  corr = (conj(propDn[x][y][0]) * propDn[x][y][0] +
+		  conj(propDn[x][y][1]) * propDn[x][y][1] +
+		  conj(propUp[x][y][0]) * propUp[x][y][0] +
+		  conj(propUp[x][y][1]) * propUp[x][y][1]).real();
+	
+	if(y<LY/2+1) pion_corr[y] += corr;
+	else pion_corr[LY-y] += corr;	    
       }
+      
       
       //pion Correlation
       name = "data/pion/pion";
@@ -377,11 +399,49 @@ int main(int argc, char **argv) {
       sprintf(fname, "%s", name.c_str());
       fp = fopen(fname, "a");
       fprintf(fp, "%d ", iter+1);
-      for(int t=0; t<LY; t++)
+      for(int t=0; t<LY/2; t++)
 	fprintf(fp, "%.16e ", pion_corr[t]);
       fprintf(fp, "\n");
       fclose(fp);
-      
+
+      //Disconnected
+      //Up type source
+      zeroField(source);
+      zeroField(Dsource);
+      zeroField(propUp);
+      for(int x=0; x<LX; x++) {
+	for(int y=0; y<LY; y++) {
+	  source[x][1][0] = cUnit;
+
+	  g5psi(source);
+	  g5Dpsi(Dsource, source, gauge, p);
+	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+	  Ainvpsi(propUp, Dsource, propGuess, gauge, p);
+	  
+	  //Down type source
+	  zeroField(source);
+	  zeroField(Dsource);
+	  zeroField(propDn);
+	  source[x][y][1] = cUnit;
+
+	  g5psi(source);
+	  g5Dpsi(Dsource, source, gauge, p);
+	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+	  Ainvpsi(propDn, Dsource, propGuess, gauge, p);
+
+	  vacuum_trace[0] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
+			      conj(propDn[x][y][1]) * propDn[x][y][1] +
+			      conj(propUp[x][y][0]) * propUp[x][y][0] +
+			      conj(propUp[x][y][1]) * propUp[x][y][1]).real();
+	  
+	  vacuum_trace[1] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
+			      conj(propDn[x][y][1]) * propDn[x][y][1] +
+			      conj(propUp[x][y][0]) * propUp[x][y][0] +
+			      conj(propUp[x][y][1]) * propUp[x][y][1]).imag();
+	  
+	}
+      }
+      cout << "Vacuum trace = (" << vacuum_trace[0]/(count*LX*LY) << "," << vacuum_trace[1]/(count*LX*LX) << ")" << endl;
     }
   }
   return 0;
@@ -391,7 +451,7 @@ int main(int argc, char **argv) {
 // HMC Routines
 //---------------------------------------------------------------------
 
-int hmc(Complex gauge[LX][LY][2], param_t p, int iter) {
+int hmc(Complex gauge[LX][LY][D], param_t p, int iter) {
   
   int accept = 0;
   
@@ -400,7 +460,7 @@ int hmc(Complex gauge[LX][LY][2], param_t p, int iter) {
   Complex phi[LX][LY][2], chi[LX][LY][2];
   double H, Hold;
 
-  copyLat(gaugeOld,gauge);
+  copyLat(gaugeOld, gauge);
   zeroLat(mom); 
   zeroField(phi);
   zeroField(chi);
@@ -442,7 +502,22 @@ void trajectory(double mom[LX][LY][2], Complex gauge[LX][LY][2],
   double dtau = p.tau/p.nstep;
   double H = 0.0;
   Complex guess[LX][LY][2];
-  gaussComplex_F(guess, p);
+#ifdef USE_ARPACK
+  //zeroField(guess);
+  
+  //deflate using phi as source
+  //Deflation eigenvectors
+  Complex defl_evecs[NEV][LX][LY][2];
+  //Deflation eigenvalues
+  Complex defl_evals[NEV];
+  
+  copyField(guess, phi);
+  arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
+  deflate(guess, phi, defl_evecs, defl_evals, p);
+  
+#else
+  zeroField(guess);
+#endif
   
   //gauge force
   double fU[LX][LY][D];
@@ -453,7 +528,7 @@ void trajectory(double mom[LX][LY][2], Complex gauge[LX][LY][2],
   //Initial half step.
   //P_{1/2} = P_0 - dtau/2 * (fU - fD)
   forceU(fU, gauge, p);
-  forceD(fD, gauge, phi, p);
+  forceD(fD, gauge, phi, guess, p);
   update_mom(fU, fD, mom, 0.5*dtau);  
   
   for(int k=1; k<p.nstep; k++) {
@@ -463,13 +538,8 @@ void trajectory(double mom[LX][LY][2], Complex gauge[LX][LY][2],
     
     //P_{k+1/2} = P_{k-1/2} - dtau * (fU - fD)
     forceU(fU, gauge, p);
-    forceD(fD, gauge, phi, p);
-    update_mom(fU, fD, mom, dtau);  
-       
-#ifdef USE_ARPACK
-    int ARPACK_iter = arpack_solve_double(gauge, p, guess, 0, k, iter);
-#endif
-    //H = calcH(mom, gauge, phi, p, true);
+    forceD(fD, gauge, phi, guess, p);
+    update_mom(fU, fD, mom, dtau);
   }
   
   //Final half step.
@@ -478,7 +548,7 @@ void trajectory(double mom[LX][LY][2], Complex gauge[LX][LY][2],
   
   //P_{n} = P_{n-1/2} - dtau/2 * (fU - fD)
   forceU(fU, gauge, p);
-  forceD(fD, gauge, phi, p);
+  forceD(fD, gauge, phi, guess, p);
   update_mom(fU, fD, mom, 0.5*dtau);
   
   //trajectory complete
@@ -520,8 +590,8 @@ void forceU(double fU[LX][LY][2], Complex gauge[LX][LY][2], param_t p) {
 //
 // *****  Should optimize this to operate only on EVEN sites. ****
 
-void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][2], param_t p){
-
+void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][2], Complex guess[LX][LY][2], param_t p){
+  
   if(p.dynamic == true) {
 
     zeroLat(fD);
@@ -529,28 +599,27 @@ void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][
     //phip = (DD^dag)^-1 * phi
     Complex phip[LX][LY][2];
     zeroField(phip);
-
-    //Ainv_psi inverts using the DdagD (g5Dg5D) operator, returns
+    
+    //Ainvpsi inverts using the DdagD (g5Dg5D) operator, returns
     // phip = (D^-1 * Ddag^-1) phi = (D^-1 * g5 * D^-1 g5) phi.
     Complex guess[LX][LY][2]; //Initial guess to CG
     zeroField(guess);
-    Ainv_psi(phip, phi, guess, gauge, p);
+    Ainvpsi(phip, phi, guess, gauge, p);
     
     //g5Dphi = g5D * phip
     Complex g5Dphi[LX][LY][2];
     zeroField(g5Dphi);
     g5Dpsi(g5Dphi, phip, gauge, p);
-      
+    
     int xp1, xm1, yp1, ym1;
     double r = 1.0;
-    for(int x=0; x<LX;x++)
-      for(int y=0; y<LY;y++) {
+    for(int x=0; x<LX; x++)
+      for(int y=0; y<LY; y++) {
 
 	xp1 = (x+1)%LX;
 	yp1 = (y+1)%LY;
 	xm1 = (x-1+LX)%LX;
-	ym1 = (y-1+LY)%LY;
-	
+	ym1 = (y-1+LY)%LY;	
 	
 	//mu = 0
 	//upper
@@ -584,8 +653,7 @@ void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][
 				(conj(phip[x][y][0]) * (r*g5Dphi[x][yp1][0] + I*g5Dphi[x][yp1][1]) +
 				 conj(phip[x][y][1]) * (I*g5Dphi[x][yp1][0] - r*g5Dphi[x][yp1][1])))
 			       )
-			    );
-	
+			    );	
       }
   }
 }

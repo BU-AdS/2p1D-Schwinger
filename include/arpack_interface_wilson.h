@@ -1,10 +1,13 @@
-/*=====================================================================================
+#ifndef ARP_INT_WIL_H
+#define ARP_INT_WIL_H
 
-  Thu Aug 02 14:15:21 EDT Dean Howarth
-  
-  ARPACK interafce for 2D compact U(1) theory.
-
-  ====================================================================================*/
+//====================================================================================
+//
+// Thu Aug 02 14:15:21 EDT Dean Howarth
+//  
+// ARPACK interafce for 2D compact U(1) theory.
+// 
+//====================================================================================
 
 #include <iostream>
 #include <fstream>
@@ -13,6 +16,7 @@
 #include <cmath>
 #include <complex>
 #include "fermionHelpers.h"
+#include "dOpHelpers.h"
 
 using namespace std;
 
@@ -300,7 +304,7 @@ void arpackErrorHelpNEUPD() {
   }
 */
 
-int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][LY][2], int infoGuess, int step, int iter) {
+void arpack_solve(const Complex gauge[LX][LY][2], Complex defl_evecs[NEV][LX][LY][2], Complex defl_evals[NEV], int step, int iter, param_t p) {
   
   //Construct parameters and memory allocation
   //------------------------------------------
@@ -310,10 +314,10 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
   int info_;
   int *ipntr_ = (int*)malloc(14*sizeof(int));
   int *iparam_ = (int*)malloc(11*sizeof(int));
-  int n_    = L*L*2,
+  int n_    = LX*LY*2,
     nev_    = p.nEv,
-    nkv_    = p.nKv,
-    ldv_    = L*L*2,
+    nkv_    = p.nKr,
+    ldv_    = LX*LY*2,
     lworkl_ = (3 * nkv_*nkv_ + 5*nkv_) * 2,
     rvec_   = 1;
   int max_iter = p.arpackMaxiter;
@@ -353,14 +357,12 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
     for(int x=0; x<LX; x++) {
       for(int y=0; y<LY; y++) {
 	for(int s=0; s<2; s++) {
-	  evecs[2*(n*L*L + y*LX + x) + s] = Zero;
-	  if(n==0) resid_[2*(y*LX + x) + s] = guess[x][y][s];
+	  evecs[2*(n*LX*LX + y*LX + x) + s] = Zero;
+	  //if(n==0) resid_[2*(y*LX + x) + s] = guess[x][y][s];
 	}
       }
     }
   }
-  //for(int k=0; k<100; k++) cout << resid_[k] << " ";
-  //cout << endl;
   
   //Alias pointers
   std::complex<double> *evecs_ = nullptr;
@@ -383,7 +385,7 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
 
   //Assign values to ARPACK params 
   ido_        = 0;
-  info_       = infoGuess;
+  info_       = 0;
   iparam_[0]  = 1;
   iparam_[1]  = 1;
   iparam_[2]  = max_iter;
@@ -418,7 +420,7 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
   }
   
   psi1 = w_workd_;
-  psi2 = w_workd_ + 2*L*L;
+  psi2 = w_workd_ + 2*LX*LY;
   
   double t1;
   double time = 0.0;;
@@ -468,23 +470,14 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
     
     t1 += clock();
     time += t1;
-    if(iter_cnt % 100 == 0) printf("Arpack Iteration: %d (%e secs)\n", iter_cnt, time/CLOCKS_PER_SEC);
+    if(iter_cnt % 100 == 0 && p.ARPACK_verbose) printf("Arpack Iteration: %d (%e secs)\n", iter_cnt, time/CLOCKS_PER_SEC);
     iter_cnt++;
     
   } while (99 != ido_ && iter_cnt < max_iter);
   
   //Subspace calulated sucessfully. Compute nEv eigenvectors and values   
-  printf("Finished in %e secs: iter=%04d  info=%d  ido=%d\n", time/CLOCKS_PER_SEC, iter_cnt, info_, ido_);      
-  //printf("Computing eigenvectors\n");
-  if(infoGuess == 1) {
-    for(int x=0; x<LX; x++) {
-      for(int y=0; y<LY; y++) {
-	for(int s=0; s<2; s++) {
-	  guess[x][y][s] = resid_[2*(y*LX + x) + s];
-	}
-      }
-    }
-  }
+  if(p.ARPACK_verbose) printf("Finished in %e secs: iter=%04d  info=%d  ido=%d\n", time/CLOCKS_PER_SEC, iter_cnt, info_, ido_);
+  
   
   //Interface to arpack routines
   //----------------------------
@@ -509,15 +502,19 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
   }
   
   //Sort the Ritz in absolute ascending order
+  //for(int i=0; i<nev_ ;i++) printf("Eval[%d] = (%.6f,%.6f)\n",
+  //i, evals_[i].real(), evals_[i].imag());      
   t1 =  -((double)clock());
   bool inverse = (p.polyACC == 1 ? false : true);
   sortAbs(mod_evals_sorted, nconv, inverse, evals_sorted_idx);
   //for(int i=0; i<nev_ ;i++) printf("Eval[%d] = (%.6f,%.6f)\n",
-  //i, evals_[i].real(), evals_[i].imag());      
-  t1 +=  clock();
+  //i, evals_[evals_sorted_idx[i]].real(), evals_[evals_sorted_idx[i]].imag());      
+  t1 += clock();
   
-  printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
-  printf("Sorted eigenvalues based on their absolute values:\n");
+  if(p.ARPACK_verbose) {
+    printf("Sorting time: %f sec\n",t1/CLOCKS_PER_SEC);
+    printf("Sorted eigenvalues based on their absolute values:\n");
+  }
   
   // Print additional convergence information.
   if( (info_) == 1){
@@ -535,12 +532,15 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
   t1 = -(double)clock();
   Complex psi3[LX][LY][2];
   
-  for(int i=0; i<nev_ ;i++){    
+  for(int i=0; i<nev_ ;i++){
+    defl_evals[i] = evals_[i];
     for(int x=0; x<LX; x++)
-      for(int y=0; y<LY; y++) {
-	for(int s=0; s<2; s++)
+      for(int y=0; y<LY; y++) 
+	for(int s=0; s<2; s++) {
 	  psi3[x][y][s] = evecs[2*(evals_sorted_idx[i]*LX*LY + y*LX + x) + s];
-      }
+	  defl_evecs[i][x][y][s] = psi3[x][y][s];
+	}
+    
     
     //apply matrix-vector operation here:
     DdagDpsi(psi2_cpy, psi3, gauge, p);
@@ -548,20 +548,25 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
     // lambda = v^dag * M*v    
     evals_[i] = dotField(psi3, psi2_cpy);
     
-    Complex unit(1.0,0.0);
     Complex m_lambda(-real(evals_[i]),
 		     -imag(evals_[i]));
     
     // d_v = ||M*v - lambda*v||
-    caxpby(unit, psi2_cpy, m_lambda, psi3, psi1_cpy);
+    caxpby(cUnit, psi2_cpy, m_lambda, psi3, psi1_cpy);
+    
+    double L2norm = norm2(psi1_cpy);
+    if(p.ARPACK_verbose)
+      printf("Eval[%04d]: %+.16e %+.16e Residual: %+.3e norm: %+.3e\n",
+	     i, real(evals_[i]), imag(evals_[i]), sqrt(L2norm), sqrt(norm2(psi3)));
 
-    double L2norm = norm2(psi1_cpy);    
-    printf("Eval[%04d]: %+.16e %+.16e Residual: %+.3e\n",
-	   i, real(evals_[i]), imag(evals_[i]), sqrt(L2norm));    
-  }    
-  
+    for(int j=0; j<i+1; j++) {
+      //Orthonormality check
+      if(p.ARPACK_verbose) cout << dotField(psi3, defl_evecs[j]) << endl;      
+    }
+  }
+
   t1 += clock();
-  printf("Eigenvalues of Dirac operator computed in: %f sec\n", t1/CLOCKS_PER_SEC);
+  if(p.ARPACK_verbose) printf("Eigenvalues of Dirac operator computed in: %f sec\n", t1/CLOCKS_PER_SEC);
   
   // cleanup 
   free(ipntr_);
@@ -576,6 +581,27 @@ int arpack_solve_double(Complex gauge[LX][LY][2], param_t p, Complex guess[LX][L
   free(select_);
   free(spectrum);
   
-  return iter_cnt;  
-}  
+  return;
+}
+
+void deflate(Complex guess_defl[LX][LY][2], Complex guess[LX][LY][2],
+	     Complex evecs[NEV][LX][LY][2],
+	     Complex evals[NEV], param_t p) {
+
+#ifdef USE_ARPACK
   
+  zeroField(guess_defl);
+  Complex scalar;
+  //Deflate each converged eigenpair from the guess
+  // guess_defl = (v * lambda^-1 * v^dag) * guess
+  for(int i=0; i<NEV; i++) {
+    
+    //Compute scalar part: s = (lambda)^-1 * (v^dag * guess)
+    scalar = dotField(evecs[i], guess);
+    scalar /= real(evals[i]);
+    //Accumulate in guess defl_guess: defl_guess = defl_guess + v * s
+    caxpy(scalar, evecs[i], guess_defl);
+  }
+#endif
+}
+#endif

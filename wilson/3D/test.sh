@@ -5,7 +5,7 @@
 # to make writing new code simpler. Please please edit and remake
 # if you wish to vary L.
 
-mkdir -p {gauge,logs,data/{data,plaq,creutz,polyakov,rect,top}}
+mkdir -p {gauge,logs,data/{data,plaq,creutz,polyakov,rect,top,pion}}
 
 # The value of the coupling in the U(1) 2D theory
 BETA=$1
@@ -44,19 +44,15 @@ ZLOCKED=1
 
 # Dynamic fermion parameters 
 # Fermion mass
-MASS=-0.06
+MASS=-0.05
 # Maximum CG iterations
 MAX_CG_ITER=1000
 # CG tolerance
-CG_EPS=1e-6
+CG_EPS=1e-8
 
 # Eigensolver parameters
-# Krylov space size
-NKV=128
-# Requested converged eigenpairs
-NEV=100
 # Tolerance on the residual
-TOL=1e-12
+TOL=1e-8
 # Maximum ARPACK iterations
 ARPACK_MAXITER=100000
 
@@ -69,7 +65,7 @@ N_POLY=100
 
 command="./u1 $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START \
 	      $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $ZLOCKED \
-	      $MASS $MAX_CG_ITER $CG_EPS $NKV $NEV $TOL $ARPACK_MAXITER $USE_ACC \
+	      $MASS $MAX_CG_ITER $CG_EPS $TOL $ARPACK_MAXITER $USE_ACC \
 	      $AMAX $AMIN $N_POLY"
 
 echo $command

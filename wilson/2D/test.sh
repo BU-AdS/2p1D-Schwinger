@@ -14,9 +14,9 @@ BETA=$1
 
 
 # The total number of HMC iterations to perform.
-HMC_ITER=1000
+HMC_ITER=100
 # The number of HMC iterations for thermalisation.
-HMC_THERM=25
+HMC_THERM=20
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -24,7 +24,7 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # HMC time steps in the integration 
-HMC_NSTEP=12
+HMC_NSTEP=10
 # HMC trajectory time
 HMC_TAU=1.0
 
@@ -40,23 +40,19 @@ RNG_SEED=1234
 DYN_QUENCH=1
 
 # Lock the Z gauge to unit (1) or allow z dynamics (0)
-ZLOCKED=0
+ZLOCKED=1
 
 # Dynamic fermion parameters
 # Fermion mass
-MASS=-0.06
+MASS=-0.05
 # Maximum CG iterations
 MAX_CG_ITER=1000
 # CG tolerance
-CG_EPS=1e-6
+CG_EPS=1e-8
 
 # Eigensolver parameters
-# Krylov space size
-NKV=32
-# Requested converged eigenpairs
-NEV=16
 # Tolerance on the residual
-TOL=1e-12
+TOL=1e-8
 # Maximum ARPACK iterations
 ARPACK_MAXITER=100000
 
@@ -69,7 +65,7 @@ N_POLY=100
 
 command="./u1 $BETA $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP \
      	      $HMC_TAU $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $MASS $MAX_CG_ITER $CG_EPS \
-     	      $NKV $NEV $TOL $ARPACK_MAXITER $USE_ACC $AMAX $AMIN $N_POLY"
+       	      $TOL $ARPACK_MAXITER $USE_ACC $AMAX $AMIN $N_POLY"
 
 echo $command
 

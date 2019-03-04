@@ -21,7 +21,7 @@ HMC_CHKPT=100
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # Number of HMC steps in the integration (~20 is needed for staggerd)
-HMC_NSTEP=20
+HMC_NSTEP=25
 # Ficticious time step
 HMC_TAU=1.0
 

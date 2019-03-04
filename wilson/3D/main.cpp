@@ -8,10 +8,12 @@
 using namespace std;
 
 //#define L 12
-#define LX 12
-#define LY 12
+#define LX 16
+#define LY 32
 #define LZ 5
 #define D 3
+#define NEV 24
+#define NKR 32
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
 
@@ -90,14 +92,14 @@ int main(int argc, char **argv) {
   p.eps = atof(argv[17]);
   
   //Arpack params
-  p.nKv = atoi(argv[18]);
-  p.nEv = atoi(argv[19]);
-  p.arpackTol = atof(argv[20]);
-  p.arpackMaxiter = atoi(argv[21]);
-  p.polyACC = atoi(argv[22]);
-  p.amax = atof(argv[23]);
-  p.amin = atof(argv[24]);
-  p.n_poly = atoi(argv[25]);
+  p.nKr = NKR;
+  p.nEv = NEV;
+  p.arpackTol = atof(argv[18]);
+  p.arpackMaxiter = atoi(argv[19]);
+  p.polyACC = atoi(argv[20]);
+  p.amax = atof(argv[21]);
+  p.amin = atof(argv[22]);
+  p.n_poly = atoi(argv[23]);
   
   //Topology
   double top = 0.0;
@@ -134,6 +136,20 @@ int main(int argc, char **argv) {
       wLoops[x][y] = Complex(0.0,0.0);
     }
   }
+
+  //Up type fermion prop
+  Complex propUp[LX][LY][2];
+  //Down type fermion prop
+  Complex propDn[LX][LY][2];
+  //fermion prop CG guess
+  Complex propGuess[LX][LY][2];
+  //Deflation eigenvectors
+  Complex defl_evecs[NEV][LX][LY][2];
+  //Deflation eigenvalues
+  Complex defl_evals[NEV];
+  
+  double pion_corr[LY];
+  double vacuum_trace[2] = {0.0, 0.0};
   
   int count = 0;
   string name;
@@ -336,7 +352,6 @@ int main(int argc, char **argv) {
 	    fclose(fp);
 	  }
 	
-	
 	//Topological Historgram
 	name = "data/top/top_hist+Lz" + to_string(z);
 	constructName(name, p);
@@ -345,7 +360,119 @@ int main(int argc, char **argv) {
 	fp = fopen(fname, "w");
 	for(int i=0; i<histL; i++) fprintf(fp, "%d %d\n", i - (histL-1)/2, histQ[z][i]);
 	fclose(fp);
+
+	if(z == (LZ-1)/2) {
 	
+	  //Pion correlation function
+	  //                              |----------------|
+	  //                              |        |-------|---------|
+	  //  < pi(x) | pi(0) > = < ReTr[up(x) g5 dn*(x) | up*(0) g5 dn(0)] >     
+	  //                    = < ReTr(G[x,0] G*[x,0]) >
+	  //
+	  // if H = Hdag, Tr(H * Hdag) = Sum_{n,m} (H_{n,m}) * (H_{n,m})^*,
+	  // i.e., the sum of the modulus squared of each element
+      
+	  Complex source[LX][LY][2];
+	  Complex Dsource[LX][LY][2];
+      
+	  //Up type source
+	  zeroField(source);
+	  zeroField(Dsource);
+	  zeroField(propUp);
+	  zeroField(propGuess);
+	  source[0][0][0] = cUnit;
+	  // up -> (g5Dg5) * up
+	  g5psi(source);
+	  g5Dpsi(Dsource, source, gauge2D, p);
+      
+#ifdef USE_ARPACK
+	  arpack_solve(gauge2D, defl_evecs, defl_evals, 0, 0, p);
+#endif
+	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+	  // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up
+	  Ainvpsi(propUp, Dsource, propGuess, gauge2D, p);
+      
+	  //Down type source
+	  zeroField(source);
+	  zeroField(Dsource);
+	  zeroField(propDn);
+	  source[0][0][1] = cUnit;	    
+      
+	  // dn -> (g5Dg5) * dn
+	  g5psi(source);
+	  g5Dpsi(Dsource, source, gauge2D, p);
+
+	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+	  // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn
+	  Ainvpsi(propDn, Dsource, propGuess, gauge2D, p);
+      
+	  //Let y be the 'time' dimension
+	  double corr = 0.0;
+	  for(int y=0; y<LY; y++) {
+	    //initialise
+	    pion_corr[y] = 0.0;
+	    //Loop over space and spin, fold propagator
+	    for(int x=0; x<LX; x++)
+	      corr = (conj(propDn[x][y][0]) * propDn[x][y][0] +
+		      conj(propDn[x][y][1]) * propDn[x][y][1] +
+		      conj(propUp[x][y][0]) * propUp[x][y][0] +
+		      conj(propUp[x][y][1]) * propUp[x][y][1]).real();
+	
+	    if(y<LY/2+1) pion_corr[y] += corr;
+	    else pion_corr[LY-y] += corr;	    
+	  }
+            
+	  //pion Correlation
+	  name = "data/pion/pion";
+	  constructName(name, p);
+	  name += ".dat";
+	  sprintf(fname, "%s", name.c_str());
+	  fp = fopen(fname, "a");
+	  fprintf(fp, "%d ", iter+1);
+	  for(int t=0; t<LY/2; t++)
+	    fprintf(fp, "%.16e ", pion_corr[t]);
+	  fprintf(fp, "\n");
+	  fclose(fp);
+      
+	  //Disconnected
+	  //Up type source
+	  zeroField(source);
+	  zeroField(Dsource);
+	  zeroField(propUp);
+	  for(int x=0; x<LX; x++) {
+	    for(int y=0; y<LY; y++) {
+	      source[x][1][0] = cUnit;
+	  
+	      g5psi(source);
+	      g5Dpsi(Dsource, source, gauge2D, p);
+	      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+	      Ainvpsi(propUp, Dsource, propGuess, gauge2D, p);
+	  
+	      //Down type source
+	      zeroField(source);
+	      zeroField(Dsource);
+	      zeroField(propDn);
+	      source[x][y][1] = cUnit;
+
+	      g5psi(source);
+	      g5Dpsi(Dsource, source, gauge2D, p);
+	      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+	      Ainvpsi(propDn, Dsource, propGuess, gauge2D, p);
+
+	      vacuum_trace[0] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
+				  conj(propDn[x][y][1]) * propDn[x][y][1] +
+				  conj(propUp[x][y][0]) * propUp[x][y][0] +
+				  conj(propUp[x][y][1]) * propUp[x][y][1]).real();
+	  
+	      vacuum_trace[1] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
+				  conj(propDn[x][y][1]) * propDn[x][y][1] +
+				  conj(propUp[x][y][0]) * propUp[x][y][0] +
+				  conj(propUp[x][y][1]) * propUp[x][y][1]).imag();
+	  
+	    }
+	  }
+	  cout << "Vacuum trace = (" << vacuum_trace[0]/(count*LX*LY) << "," << vacuum_trace[1]/(count*LX*LX) << ")" << endl;	  
+	}
       }
     }
   }
@@ -410,12 +537,21 @@ void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
   double dtau = p.tau/p.nstep;
   double H = 0.0;
   Complex guess[LX][LY][2];
+  Complex gauge2D[LX][LY][2];
+  extractLatSlice(gauge, gauge2D, (LZ-1)/2);
 #ifdef USE_ARPACK
-  gaussReal_F(guess);
-  //for(int x=0; x<LX; x++)
-  //for(int y=0; y<LY; y++)
-  //for(int s=0; s<2; s++)
-  //guess[x][y][s] = drand48();
+                                                                                                                                                                              
+  //deflate using phi as source
+  //Deflation eigenvectors
+  Complex defl_evecs[NEV][LX][LY][2];
+  //Deflation eigenvalues
+  Complex defl_evals[NEV];
+  copyField(guess, phi);
+  arpack_solve(gauge2D, defl_evecs, defl_evals, 0, 0, p);
+  deflate(guess, phi, defl_evecs, defl_evals, p);
+  //zeroField(guess);
+#else
+  zeroField(guess);
 #endif
   
   //gauge force
@@ -425,12 +561,10 @@ void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
   double fD[LX][LY][2];
   zeroField(fD);
   
-  Complex gauge2D[LX][LY][2];
 
   //Initial half step.
   //P_{1/2} = P_0 - dtau/2 * (fU + fD)
   forceU(fU, gauge, p);
-  extractLatSlice(gauge, gauge2D, (LZ-1)/2);
   forceD(fD, gauge2D, phi, p);
   update_mom(fU, fD, mom, p, 0.5*dtau);  
   
@@ -444,11 +578,6 @@ void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
     extractLatSlice(gauge, gauge2D, (LZ-1)/2);
     forceD(fD, gauge2D, phi, p);
     update_mom(fU, fD, mom, p, dtau);  
-       
-#ifdef USE_ARPACK
-    int ARPACK_iter = arpack_solve_double(gauge2D, p, guess, 1, k, 0);
-#endif
-    //H = calcH(mom, gauge, phi, p, true);
   }
   
   //Final half step.
@@ -571,11 +700,11 @@ void forceD(double fD[LX][LY][2], const Complex gauge[LX][LY][2], Complex phi[LX
     Complex phip[LX][LY][2];
     zeroField(phip);
 
-    //Ainv_psi inverts using the DdagD (g5Dg5D) operator, returns
+    //Ainvpsi inverts using the DdagD (g5Dg5D) operator, returns
     // phip = (D^-1 * Ddag^-1) phi = (D^-1 * g5 * D^-1 g5) phi.
     Complex guess[LX][LY][2]; //Initial guess to CG
     zeroField(guess);
-    Ainv_psi(phip, phi, guess, gauge, p);
+    Ainvpsi(phip, phi, guess, gauge, p);
     
     //g5Dphi = g5D * phip
     Complex g5Dphi[LX][LY][2];

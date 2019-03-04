@@ -150,7 +150,7 @@ double measFermAction(Complex gauge[LX][LY][2], Complex phi[LX][LY],
   // cout << "Before Fermion force H = " << H << endl;
   Complex scalar = Complex(0.0,0.0);
   zeroField(phitmp);
-  Ainv_psi(phitmp, phi, phitmp, gauge, p);
+  Ainvpsi(phitmp, phi, phitmp, gauge, p);
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++){
       if((x+y)%2 == 0)
@@ -186,7 +186,7 @@ double measFermAction(Complex gauge[LX][LY][2], Complex phi[LX][LY][2],
   //cout << "Before Fermion force H = " << H << endl;
   Complex scalar = Complex(0.0,0.0);
   zeroField(phitmp);
-  if(postStep) Ainv_psi(phitmp, phi, phitmp, gauge, p);
+  if(postStep) Ainvpsi(phitmp, phi, phitmp, gauge, p);
   else copyField(phitmp, phi);
   
   for(int x=0; x<LX; x++)

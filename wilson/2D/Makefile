@@ -22,12 +22,12 @@ all: $(TARGET)
 u1: ${OBJS}
 	$(CXX) $(CXXFLAGS) -o u1 $(OBJS) ${ARPACK_LIB}
 
-main.o: main.cpp ${INCLUDES} Makefile
+main.o: main.cpp Makefile 
 	${CXX} ${CXXFLAGS} -c main.cpp
 
 #============================================================
 
-ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES)
+ALL_SOURCES = Makefile $(SOURCES) 
 
 clean:
 	rm -f $(TARGET) $(OBJS) core*

@@ -38,14 +38,15 @@ typedef struct{
   int smearIter = 1;
   
   //Arpack params
-  int nEv = 16;
-  int nKv = 32;
+  int nEv = NEV;
+  int nKr = NKR;
   double arpackTol = 1e-6;
   int arpackMaxiter = 10000;
   int polyACC = 0;
   double amax = 10.0;
   double amin = 0.1;
   int n_poly = 100;
+  bool ARPACK_verbose = false;
   
 } param_t;
 
@@ -66,7 +67,7 @@ void printParams(param_t p) {
   cout << "Smearing: APE iter = " << p.smearIter << endl;
   cout << "          APE alpha = " << p.alpha << endl;
 #ifdef USE_ARPACK
-  cout << "ARPACK:   nkv = " << p.nKv << endl;
+  cout << "ARPACK:   nkv = " << p.nKr << endl;
   cout << "          nev = " << p.nEv << endl;
   cout << "          tol = " << p.arpackTol << endl;
   cout << "          maxiter = " << p.arpackMaxiter << endl;
