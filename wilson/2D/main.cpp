@@ -8,9 +8,9 @@
 using namespace std;
 
 #define LX 16
-#define LY 32
+#define LY 16
 #define D 2
-#define NEV 24
+#define NEV 2
 #define NKR 32
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
@@ -24,12 +24,13 @@ typedef complex<double> Complex;
 #include "measurementHelpers.h"
 #include "fermionHelpers.h"
 #include "dOpHelpers.h"
+#include "inverters.h"
 
 #ifdef USE_ARPACK
 #include "arpack_interface_wilson.h"
 #endif
 
-//HMC routines defined by dimension, so kept in main file
+//HMC
 //----------------------------------------------------------------------------
 
 //Fermion dependent
@@ -41,9 +42,9 @@ void forceD(double fU[LX][LY][D], Complex gauge[LX][LY][D], Complex phi[LX][LY][
 //Fermion agnostic
 int hmc(Complex gauge[LX][LY][D], param_t p, int iter);
 void forceU(double fU[LX][LY][D], Complex gauge[LX][LY][D], param_t p);
-void update_mom(double fU[LX][LY][D], double fD[LX][LY][D], double mom[LX][LY][D], double dtau);
+void update_mom(double fU[LX][LY][D], double fD[LX][LY][D],
+		double mom[LX][LY][D], double dtau);
 void update_gauge(Complex gauge[LX][LY][D], double mom[LX][LY][D], double dtau);
-void doParityFlip(Complex gauge[LX][LY][D], param_t p);
 //----------------------------------------------------------------------------
 
 //Global variables.
@@ -111,31 +112,6 @@ int main(int argc, char **argv) {
       gaugeFree[LX][LY][1] = cUnit;
     }
     
-  double sigma[LX/2];
-  Complex pLoops[LX/2];
-  Complex wLoops[LX/2][LY/2];  
-  for(int x=0; x<LX/2; x++) {
-    pLoops[x] = 0.0;
-    sigma[x] = 0.0;
-    for(int y=0; y<LY/2; y++) {
-      wLoops[x][y] = Complex(0.0,0.0);   // for average Creutz ratios
-    }
-  }
-
-  //Up type fermion prop
-  Complex propUp[LX][LY][2];
-  //Down type fermion prop
-  Complex propDn[LX][LY][2];
-  //fermion prop CG guess
-  Complex propGuess[LX][LY][2];
-  //Deflation eigenvectors
-  Complex defl_evecs[NEV][LX][LY][2];
-  //Deflation eigenvalues
-  Complex defl_evals[NEV];
-  
-  double pion_corr[LY];
-  double vacuum_trace[2] = {0.0, 0.0};
-  
   int count = 0;
   string name;
   fstream outPutFile;
@@ -171,16 +147,16 @@ int main(int argc, char **argv) {
       //Perform HMC step
       accept = hmc(gauge, p, iter);
       double time = time0 + clock();
-      cout << fixed << iter+1 << " "; //Iteration
-      cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
+      cout << fixed << iter+1 << " ";              //Iteration
+      cout << time/CLOCKS_PER_SEC << " " << endl;  //Time
     }
     
     for(iter=p.therm; iter<2*p.therm; iter++){  
       //Perform HMC step with accept/reject
       accept = hmc(gauge, p, iter);
       double time = time0 + clock();
-      cout << fixed << iter+1 << " "; //Iteration
-      cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
+      cout << fixed << iter+1 << " ";             //Iteration
+      cout << time/CLOCKS_PER_SEC << " " << endl; //Time
     }
     iter_offset = 2*p.therm;    
   }
@@ -193,28 +169,30 @@ int main(int argc, char **argv) {
     //HMC acceptance
     accepted += accept;
 
-    //Measure the topological charge
+    //Measure the topological charge if trajectory is accepted
     //---------------------------------------------------------------------
-    top = measTopCharge(gauge, p);
-    top_int = round(top);
-    name = "data/top/top_charge";
-    constructName(name, p);
-    name += ".dat";
-    sprintf(fname, "%s", name.c_str());
-    fp = fopen(fname, "a");
-    fprintf(fp, "%d %d\n", iter, top_int);
-    fclose(fp);
-
-    index = top_int + (histL-1)/2;
-    histQ[index]++;
-    if(top_old == top_int) top_stuck++;
-    top_old = top_int;
+    if(accept == 1) {
+      top = measTopCharge(gauge, p);
+      top_int = round(top);
+      name = "data/top/top_charge";
+      constructName(name, p);
+      name += ".dat";
+      sprintf(fname, "%s", name.c_str());
+      fp = fopen(fname, "a");
+      fprintf(fp, "%d %d\n", iter, top_int);
+      fclose(fp);
+      
+      index = top_int + (histL-1)/2;
+      histQ[index]++;
+      if(top_old == top_int) top_stuck++;
+      top_old = top_int;
+    }
     
     //Perform Measurements
     //---------------------------------------------------------------------
     if( (iter+1)%p.skip == 0) {
       
-      count++;
+      count++; //Number of measurements taken
 
       //Checkpoint the gauge field
       if( (iter+1)%p.chkpt == 0) {	  
@@ -227,102 +205,35 @@ int main(int argc, char **argv) {
       //Plaquette action
       double plaq = measPlaq(gauge);
       plaqSum += plaq;
-	
-      //Info dumped to stdout
+
+      //Dump simulation data to stdout
       double time = time0 + clock();
       cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
       cout << time/CLOCKS_PER_SEC << " ";                 //Time
       cout << plaqSum/count << " ";                       //Action
-      cout << (double)top_stuck/(count*p.skip) << " ";    //P(stuck)
+      cout << (double)top_stuck/(accepted) << " ";        //P(stuck)
       cout << expdHAve/expcount << " ";                   //Average exp(-dH)
       cout << dHAve/expcount << " ";                      //Average dH
       cout << (double)accepted/(count*p.skip) << " ";     //Acceptance
       cout << top_int << endl;                            //T charge
 	
-      //Dump to file
-      name = "data/data/data";//I cannot make bricks without clay!
+      //Dump simulation data to file
+      name = "data/data/data"; //I cannot make bricks without clay!
       constructName(name, p);
       name += ".dat";	
       sprintf(fname, "%s", name.c_str());	
-      fp = fopen(fname, "a");
-	
-      fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e\n",
+      fp = fopen(fname, "a");	
+      fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e %.16e %d\n",
 	      iter+1,
 	      time/CLOCKS_PER_SEC,
 	      plaqSum/count,
 	      (double)top_stuck/(count*p.skip),
 	      expdHAve/expcount,
-	      (double)accepted/(count*p.skip));
-      fclose(fp);
-	
-      //Polyakov wLoops      
-      for(int x=0; x<LX/2; x++) pLoops[x] = 0.0;
-      measPolyakovLoops(gauge, pLoops);
-      
-      name = "data/polyakov/polyakov";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d ", iter + 1);
-      for(int size=1; size<LX/2; size++)
-	fprintf(fp, "%.16e %.16e ",
-		real(pLoops[size]),
-		imag(pLoops[size]) );
-      fprintf(fp, "\n");
-      fclose(fp);
-
-      name = "data/polyakov/polyakov_ratios";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d ", iter + 1);
-      for(int size=1 ; size < LX/2-1; size++)
-	fprintf(fp, "%.16e ",
-		real(pLoops[size+1])/real(pLoops[size]));
-      fprintf(fp, "\n");
+	      dHAve/expcount,
+	      (double)accepted/(count*p.skip),
+	      top_int);
       fclose(fp);
       
-      // Creutz Ratios
-      zeroWL(wLoops);
-      measWilsonLoops(gauge, wLoops, p);
-      
-      //Compute string tension
-      for(int size=1; size<LX/2; size++) {
-	sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
-				(real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
-	
-	sigma[size] += - log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
-				 (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
-	
-	sigma[size] *= 0.5;
-	
-      }
-      
-      name = "data/creutz/creutz";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d %.16e ", iter+1, -log(abs(plaq)) );
-      for(int size=2; size<LX/2; size++)
-	fprintf(fp, "%.16e ", sigma[size]);
-      fprintf(fp, "\n");
-      fclose(fp);
-      
-      for(int sizex=2; sizex<LX/2; sizex++)
-	for(int sizey=sizex-1; (sizey < LY/2 && sizey <= sizex+1); sizey++) {
-	  name = "data/rect/rectWL";
-	  name += "_" + to_string(sizex) + "_" + to_string(sizey);
-	  constructName(name, p);
-	  name += ".dat";
-	  sprintf(fname, "%s", name.c_str());
-	  fp = fopen(fname, "a");
-	  fprintf(fp, "%d %.16e %.16e\n", iter+1, real(wLoops[sizex][sizey]), imag(wLoops[sizex][sizey]));	    
-	  fclose(fp);
-	}
-
       //Update topoligical charge histogram
       name = "data/top/top_hist";
       constructName(name, p);
@@ -331,117 +242,21 @@ int main(int argc, char **argv) {
       fp = fopen(fname, "w");
       for(int i=0; i<histL; i++) fprintf(fp, "%d %d\n", i - (histL-1)/2, histQ[i]);
       fclose(fp);
+
+      //Physical observables
+      //-------------------------------------------------------------      
+      //Polyakov Loops      
+      measPolyakovLoops(gauge, iter, p);
       
-      //Pion correlation function
-      //                              |----------------|
-      //                              |        |-------|---------|
-      //  < pi(x) | pi(0) > = < ReTr[up(x) g5 dn*(x) | up*(0) g5 dn(0)] >     
-      //                    = < ReTr(G[x,0] G*[x,0]) >
-      //
-      // if H = Hdag, Tr(H * Hdag) = Sum_{n,m} (H_{n,m}) * (H_{n,m})^*,
-      // i.e., the sum of the modulus squared of each element
-      
-      Complex source[LX][LY][2];
-      Complex Dsource[LX][LY][2];
+      //Creutz Ratios
+      measWilsonLoops(gauge, plaq, iter, p);
 
-      //Up type source
-      zeroField(source);
-      zeroField(Dsource);
-      zeroField(propUp);
-      zeroField(propGuess);
-      source[0][0][0] = cUnit;
-      // up -> (g5Dg5) * up
-      g5psi(source);
-      g5Dpsi(Dsource, source, gauge, p);
+      //Pion Correlation
+      measPionCorrelation(gauge, top_old, iter, p);
 
-#ifdef USE_ARPACK
-      arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
-#endif
-      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-      // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up
-      Ainvpsi(propUp, Dsource, propGuess, gauge, p);
-
-      //Down type source
-      zeroField(source);
-      zeroField(Dsource);
-      zeroField(propDn);
-      source[0][0][1] = cUnit;	    
-      
-      // dn -> (g5Dg5) * dn
-      g5psi(source);
-      g5Dpsi(Dsource, source, gauge, p);
-
-      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-      // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn
-      Ainvpsi(propDn, Dsource, propGuess, gauge, p);
-      
-      //Let y be the 'time' dimension
-      double corr = 0.0;
-      for(int y=0; y<LY; y++) {
-	//initialise
-	pion_corr[y] = 0.0;
-	//Loop over space and spin, fold propagator
-	for(int x=0; x<LX; x++)
-	  corr = (conj(propDn[x][y][0]) * propDn[x][y][0] +
-		  conj(propDn[x][y][1]) * propDn[x][y][1] +
-		  conj(propUp[x][y][0]) * propUp[x][y][0] +
-		  conj(propUp[x][y][1]) * propUp[x][y][1]).real();
-	
-	if(y<LY/2+1) pion_corr[y] += corr;
-	else pion_corr[LY-y] += corr;	    
-      }
-      
-      
-      //pion Correlation
-      name = "data/pion/pion";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d ", iter+1);
-      for(int t=0; t<LY/2; t++)
-	fprintf(fp, "%.16e ", pion_corr[t]);
-      fprintf(fp, "\n");
-      fclose(fp);
-
-      //Disconnected
-      //Up type source
-      zeroField(source);
-      zeroField(Dsource);
-      zeroField(propUp);
-      for(int x=0; x<LX; x++) {
-	for(int y=0; y<LY; y++) {
-	  source[x][1][0] = cUnit;
-
-	  g5psi(source);
-	  g5Dpsi(Dsource, source, gauge, p);
-	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-	  Ainvpsi(propUp, Dsource, propGuess, gauge, p);
-	  
-	  //Down type source
-	  zeroField(source);
-	  zeroField(Dsource);
-	  zeroField(propDn);
-	  source[x][y][1] = cUnit;
-
-	  g5psi(source);
-	  g5Dpsi(Dsource, source, gauge, p);
-	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-	  Ainvpsi(propDn, Dsource, propGuess, gauge, p);
-
-	  vacuum_trace[0] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
-			      conj(propDn[x][y][1]) * propDn[x][y][1] +
-			      conj(propUp[x][y][0]) * propUp[x][y][0] +
-			      conj(propUp[x][y][1]) * propUp[x][y][1]).real();
-	  
-	  vacuum_trace[1] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
-			      conj(propDn[x][y][1]) * propDn[x][y][1] +
-			      conj(propUp[x][y][0]) * propUp[x][y][0] +
-			      conj(propUp[x][y][1]) * propUp[x][y][1]).imag();
-	  
-	}
-      }
-      cout << "Vacuum trace = (" << vacuum_trace[0]/(count*LX*LY) << "," << vacuum_trace[1]/(count*LX*LX) << ")" << endl;
+      //Vacuum Trace
+      measVacuumTrace(gauge, top_old, iter, p);
+      //-------------------------------------------------------------
     }
   }
   return 0;
@@ -503,8 +318,8 @@ void trajectory(double mom[LX][LY][2], Complex gauge[LX][LY][2],
   double H = 0.0;
   Complex guess[LX][LY][2];
 #ifdef USE_ARPACK
-  //zeroField(guess);
-  
+  zeroField(guess);
+  /*
   //deflate using phi as source
   //Deflation eigenvectors
   Complex defl_evecs[NEV][LX][LY][2];
@@ -514,7 +329,7 @@ void trajectory(double mom[LX][LY][2], Complex gauge[LX][LY][2],
   copyField(guess, phi);
   arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
   deflate(guess, phi, defl_evecs, defl_evals, p);
-  
+  */
 #else
   zeroField(guess);
 #endif
@@ -567,7 +382,6 @@ void forceU(double fU[LX][LY][2], Complex gauge[LX][LY][2], param_t p) {
       xm1 = (x-1+LX)%LX;
       yp1 = (y+1)%LY;
       ym1 = (y-1+LY)%LY;
-
       
       plaq0 = gauge[x][y][0]*gauge[xp1][y][1]*conj(gauge[x][yp1][0])*conj(gauge[x][y][1]);
       fU[x][y][0] += p.beta*imag(plaq0);
@@ -579,8 +393,7 @@ void forceU(double fU[LX][LY][2], Complex gauge[LX][LY][2], param_t p) {
       fU[x][y][1] += p.beta*imag(plaq);
 
       //This plaquette was aleady computed. We want the conjugate.
-      fU[x][y][1] -= p.beta*imag(plaq0);
-      
+      fU[x][y][1] -= p.beta*imag(plaq0);      
     }
 }
 
@@ -678,15 +491,15 @@ void update_gauge(Complex gauge[LX][LY][D], double mom[LX][LY][D], double dtau){
 
 
 // Do a parity flip based on eqn 4 of arXiv:1203.2560v2
-void doParityFlip(Complex gauge[LX][LY][D], param_t p) {
-  Complex parity_gauge[LX][LY][D];
-  for (int x=0; x<LX; x++) {
-    for (int y=0; y<LY; y++) {
-      //parity_gauge[(-x-1+2*L)%L][y][0] = conj(gauge[x][y][0]);
-      //parity_gauge[(-x+2*L)%L][y][1] = gauge[x][y][1];
-    }
-  }
-  copyLat(gauge, parity_gauge);
-}
+// void doParityFlip(Complex gauge[LX][LY][D], param_t p) {
+//   Complex parity_gauge[LX][LY][D];
+//   for (int x=0; x<LX; x++) {
+//     for (int y=0; y<LY; y++) {
+//       //parity_gauge[(-x-1+2*L)%L][y][0] = conj(gauge[x][y][0]);
+//       //parity_gauge[(-x+2*L)%L][y][1] = gauge[x][y][1];
+//     }
+//   }
+//   copyLat(gauge, parity_gauge);
+// }
 
 //-------------------------------------------------------------------------------

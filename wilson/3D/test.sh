@@ -7,6 +7,22 @@
 
 mkdir -p {gauge,logs,data/{data,plaq,creutz,polyakov,rect,top,pion}}
 
+# configure preamble
+#---------------------------------------------------------------
+LX=16
+LY=32
+LZ=5
+# Construct the correct executable
+cp main_template.cpp main.cpp
+cp Makefile_template Makefile
+sed -i '.bak' -e s/__LX__/${LX}/g main.cpp Makefile
+sed -i '.bak' -e s/__LY__/${LY}/g main.cpp Makefile
+sed -i '.bak' -e s/__LZ__/${LZ}/g main.cpp Makefile
+
+rm *.bak
+make
+#---------------------------------------------------------------
+
 # The value of the coupling in the U(1) 2D theory
 BETA=$1
 
@@ -63,10 +79,10 @@ AMIN=1.0
 N_POLY=100
 
 
-command="./u1 $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START \
-	      $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $ZLOCKED \
-	      $MASS $MAX_CG_ITER $CG_EPS $TOL $ARPACK_MAXITER $USE_ACC \
-	      $AMAX $AMIN $N_POLY"
+command="./2p1D-Wilson-LX$LX-LY$LY-LZ$LZ $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP 
+	      $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA 
+	      $RNG_SEED $DYN_QUENCH $ZLOCKED $MASS $MAX_CG_ITER $CG_EPS $TOL 
+	      $ARPACK_MAXITER $USE_ACC $AMAX $AMIN $N_POLY"
 
 echo $command
 

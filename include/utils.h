@@ -32,6 +32,7 @@ typedef struct{
   double m = -0.06;
   bool dynamic = true;
   bool lockedZ = false;
+  bool deflate = false;
   
   //Smearing
   double alpha = 0.5;
@@ -54,11 +55,15 @@ typedef struct{
 void printParams(param_t p) {
   cout << endl;
   cout << "Physics:  XSize = "<< LX << endl;
-  cout << "Physics:  YSize = "<< LY << endl;
+  cout << "          YSize = "<< LY << endl;
   cout << "          Beta = "<< p.beta << endl;
   cout << "          Dynamic = " << (p.dynamic == true ? "True" : "False") << endl;
-  if (p.lockedZ) cout << "          Z locked = True " << endl;
   if (p.dynamic == true) cout << "          Mass = " << p.m << endl;
+#ifdef LZ
+  cout << "          ZSize = "<< LZ << endl;
+  if (LZ != 1)   cout << "          BetaZ = "<< p.betaz << endl;
+  if (p.lockedZ) cout << "          Z locked = True " << endl;
+#endif
   cout << "HMC:      Therm Sweeps: (" << p.therm << " accept) (" << p.therm << " accept/reject)" << endl; 
   cout << "          Data Points = " << p.iterHMC << endl;
   cout << "          Time Step = " << p.tau/p.nstep << endl;
@@ -176,7 +181,6 @@ void coldStart(Complex gauge[LX][LY][2],param_t p){
 void gaussReal_F(double field[LX][LY][2]) {
   //normalized gaussian exp[ - phi*phi/2]  <phi|phi> = 1
   double r, theta, sum;
-  double inv_sqrt2 = 1.0/sqrt(2);
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++){
       r = sqrt(-2.0*log(drand48()));
@@ -197,7 +201,6 @@ void gaussReal_F(double field[LX][LY][2]) {
 void gaussReal_F(double field[LX][LY]) {
   //normalized gaussian exp[ - phi*phi/2]  <phi|phi> = 1
   double r, theta, sum;
-  double inv_sqrt2 = 1.0/sqrt(2);
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++){
       r = sqrt(-2.0*log(drand48()));

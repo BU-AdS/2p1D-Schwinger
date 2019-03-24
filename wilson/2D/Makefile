@@ -1,13 +1,10 @@
 #Your path to...
 ARPACK=/usr/local/Cellar/arpack/3.6.2
-
 ARPACK_LIB= -L${ARPACK}/lib/ -larpack
-#ARPACK_FLAGS= -DUSE_ARPACK
-
+ARPACK_FLAGS= -DUSE_ARPACK
 #============================================================
 
-TARGET = u1
-
+TARGET  = 2D-Wilson-LX16-LY16
 SOURCES = main.cpp
 OBJS    = main.o
 INC_PATH=-I/Users/deanhowarth/2p1D/2p1D-Schwinger/include
@@ -17,23 +14,17 @@ CXXFLAGS = -O3 -g -std=c++11 ${INC_PATH} ${ARPACK_FLAGS}
 
 #============================================================
 
-all: $(TARGET)
+all: ${TARGET}
 
-u1: ${OBJS}
-	$(CXX) $(CXXFLAGS) -o u1 $(OBJS) ${ARPACK_LIB}
+${TARGET}: ${OBJS}
+	$(CXX) ${CXXFLAGS} -o ${TARGET} ${OBJS} ${ARPACK_LIB}
 
 main.o: main.cpp Makefile 
 	${CXX} ${CXXFLAGS} -c main.cpp
 
 #============================================================
 
-ALL_SOURCES = Makefile $(SOURCES) 
+ALL_SOURCES = Makefile ${SOURCES} 
 
 clean:
-	rm -f $(TARGET) $(OBJS) core*
-
-tar: $(ALL_SOURCES) 
-	tar cvf $(TARGET).tar $(ALL_SOURCES) 
-
-$(TARGET).ps: $(ALL SOURCES)
-	enscript -pcode.ps $(ALL_SOURCES)
+	rm -f ${TARGET} ${OBJS} core*

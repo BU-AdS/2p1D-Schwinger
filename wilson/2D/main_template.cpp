@@ -16,8 +16,8 @@ using namespace std;
 #define TWO_PI 6.283185307179586
 
 typedef complex<double> Complex;
-#define I Complex(0,1)
-#define cUnit Complex(1,0)
+#define I Complex(0,1.0)
+#define cUnit Complex(1.0,0)
 
 #include "utils.h"
 #include "latHelpers.h"
@@ -27,17 +27,17 @@ typedef complex<double> Complex;
 #include "inverters.h"
 
 #ifdef USE_ARPACK
-#include "arpack_interface_staggered.h"
+#include "arpack_interface_wilson.h"
 #endif
 
-//HMC 
+//HMC
 //----------------------------------------------------------------------------
 
 //Fermion dependent
 void trajectory(double mom[LX][LY][D], Complex gauge[LX][LY][D],
-		Complex chi[LX][LY], param_t p);
-void forceD(double fU[LX][LY][D], Complex gauge[LX][LY][D], Complex chi[LX][LY],
-	    param_t p);
+		Complex phi[LX][LY][2], param_t p, int iter);
+void forceD(double fU[LX][LY][D], Complex gauge[LX][LY][D], Complex phi[LX][LY][2],
+	    Complex guess[LX][LY][2], param_t p);
 
 //Fermion agnostic
 int hmc(Complex gauge[LX][LY][D], param_t p, int iter);
@@ -70,19 +70,19 @@ int main(int argc, char **argv) {
   long iseed = (long)atoi(argv[11]);
   //Pseudo RNG seed
   srand48(iseed);
-
+  
   if(atoi(argv[12]) == 0) 
     p.dynamic = false;
   else
     p.dynamic = true;
-  
+
   p.m = atof(argv[13]);
   
   p.maxIterCG = atoi(argv[14]);
   p.eps = atof(argv[15]);
   
   //Arpack params
-  p.nKv = NKR;
+  p.nKr = NKR;
   p.nEv = NEV;
   p.arpackTol = atof(argv[16]);
   p.arpackMaxiter = atoi(argv[17]);
@@ -111,18 +111,7 @@ int main(int argc, char **argv) {
       gaugeFree[LX][LY][0] = cUnit;
       gaugeFree[LX][LY][1] = cUnit;
     }
-  
-  double sigma[LX/2];
-  Complex pLoops[LX/2];
-  Complex wLoops[LX/2][LY/2];  
-  for(int x=0; x<LX/2; x++) {
-    pLoops[x] = 0.0;
-    sigma[x] = 0.0;
-    for(int y=0; y<LY/2; y++) {
-      wLoops[x][y] = Complex(0.0,0.0);   // for average Creutz ratios
-    }
-  }
-  
+    
   int count = 0;
   string name;
   fstream outPutFile;
@@ -139,7 +128,8 @@ int main(int argc, char **argv) {
   double time0 = -((double)clock());
   int iter_offset = 0;
   int iter = 0;
-
+  cout << setprecision(16);
+  
   if(p.checkpointStart > 0) {
 
     //Read in gauge field if requested
@@ -157,16 +147,16 @@ int main(int argc, char **argv) {
       //Perform HMC step
       accept = hmc(gauge, p, iter);
       double time = time0 + clock();
-      cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
-      cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
+      cout << fixed << iter+1 << " ";              //Iteration
+      cout << time/CLOCKS_PER_SEC << " " << endl;  //Time
     }
     
     for(iter=p.therm; iter<2*p.therm; iter++){  
       //Perform HMC step with accept/reject
       accept = hmc(gauge, p, iter);
       double time = time0 + clock();
-      cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
-      cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
+      cout << fixed << iter+1 << " ";             //Iteration
+      cout << time/CLOCKS_PER_SEC << " " << endl; //Time
     }
     iter_offset = 2*p.therm;    
   }
@@ -179,28 +169,30 @@ int main(int argc, char **argv) {
     //HMC acceptance
     accepted += accept;
 
-    //Measure the topological charge
-    //------------------------------
-    top = measTopCharge(gauge, p);
-    top_int = round(top);
-    name = "data/top/top_charge";
-    constructName(name, p);
-    name += ".dat";
-    sprintf(fname, "%s", name.c_str());
-    fp = fopen(fname, "a");
-    fprintf(fp, "%d %d\n", iter, top_int);
-    fclose(fp);
-
-    index = top_int + (histL-1)/2;
-    histQ[index]++;
-    if(top_old == top_int) top_stuck++;
-    top_old = top_int;
+    //Measure the topological charge if trajectory is accepted
+    //---------------------------------------------------------------------
+    if(accept == 1) {
+      top = measTopCharge(gauge, p);
+      top_int = round(top);
+      name = "data/top/top_charge";
+      constructName(name, p);
+      name += ".dat";
+      sprintf(fname, "%s", name.c_str());
+      fp = fopen(fname, "a");
+      fprintf(fp, "%d %d\n", iter, top_int);
+      fclose(fp);
+      
+      index = top_int + (histL-1)/2;
+      histQ[index]++;
+      if(top_old == top_int) top_stuck++;
+      top_old = top_int;
+    }
     
     //Perform Measurements
-    //--------------------
+    //---------------------------------------------------------------------
     if( (iter+1)%p.skip == 0) {
       
-      count++;
+      count++; //Number of measurements taken
 
       //Checkpoint the gauge field
       if( (iter+1)%p.chkpt == 0) {	  
@@ -213,101 +205,35 @@ int main(int argc, char **argv) {
       //Plaquette action
       double plaq = measPlaq(gauge);
       plaqSum += plaq;
-	
-      //Info dumped to stdout
+
+      //Dump simulation data to stdout
       double time = time0 + clock();
       cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
       cout << time/CLOCKS_PER_SEC << " ";                 //Time
       cout << plaqSum/count << " ";                       //Action
-      cout << (double)top_stuck/(count*p.skip) << " ";    //P(stuck)
+      cout << (double)top_stuck/(accepted) << " ";        //P(stuck)
       cout << expdHAve/expcount << " ";                   //Average exp(-dH)
       cout << dHAve/expcount << " ";                      //Average dH
       cout << (double)accepted/(count*p.skip) << " ";     //Acceptance
       cout << top_int << endl;                            //T charge
 	
-      //Dump to file
-      name = "data/data/data";//I cannot make bricks without clay!
+      //Dump simulation data to file
+      name = "data/data/data"; //I cannot make bricks without clay!
       constructName(name, p);
       name += ".dat";	
       sprintf(fname, "%s", name.c_str());	
-      fp = fopen(fname, "a");
-	
-      fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e\n",
+      fp = fopen(fname, "a");	
+      fprintf(fp, "%d %.16e %.16e %.16e %.16e %.16e %.16e %d\n",
 	      iter+1,
 	      time/CLOCKS_PER_SEC,
 	      plaqSum/count,
 	      (double)top_stuck/(count*p.skip),
 	      expdHAve/expcount,
-	      (double)accepted/(count*p.skip));
-      fclose(fp);
-	
-      //Polyakov wLoops      
-      for(int a=0; a<L/2; a++) pLoops[a] = 0.0;
-      measPolyakovLoops(gauge, pLoops);
-      
-      name = "data/polyakov/polyakov";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d ", iter + 1);
-      for(int size=1 ; size < L/2; size++)
-	fprintf(fp, "%.16e %.16e ",
-		real(pLoops[size]),
-		imag(pLoops[size]) );
-      fprintf(fp, "\n");
-      fclose(fp);
-
-      name = "data/polyakov/polyakov_ratios";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d ", iter + 1);
-      for(int size=1 ; size < L/2-1; size++)
-	fprintf(fp, "%.16e ",
-		real(pLoops[size+1])/real(pLoops[size]));
-      fprintf(fp, "\n");
+	      dHAve/expcount,
+	      (double)accepted/(count*p.skip),
+	      top_int);
       fclose(fp);
       
-      // Creutz Ratios
-      zeroWL(wLoops);
-      measWilsonLoops(gauge, wLoops, p);
-      
-      //Compute string tension
-      for(int size=1; size<L/2; size++) {
-	sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
-				(real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
-	
-	sigma[size] += - log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
-				 (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
-	
-	sigma[size] *= 0.5;	
-      }
-      
-      name = "data/creutz/creutz";
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d %.16e ", iter+1, -log(abs(plaq)) );
-      for(int size=2 ; size < L/2; size++)
-	fprintf(fp, "%.16e ", sigma[size]);
-      fprintf(fp, "\n");
-      fclose(fp);
-      
-      for(int sizex=2; sizex<L/2; sizex++)
-	for(int sizey=sizex-1; (sizey < L/2 && sizey <= sizex+1); sizey++) {
-	  name = "data/rect/rectWL";
-	  name += "_" + to_string(sizex) + "_" + to_string(sizey);
-	  constructName(name, p);
-	  name += ".dat";
-	  sprintf(fname, "%s", name.c_str());
-	  fp = fopen(fname, "a");
-	  fprintf(fp, "%d %.16e %.16e\n", iter+1, real(wLoops[sizex][sizey]), imag(wLoops[sizex][sizey]));	    
-	  fclose(fp);
-	}
-
       //Update topoligical charge histogram
       name = "data/top/top_hist";
       constructName(name, p);
@@ -317,84 +243,107 @@ int main(int argc, char **argv) {
       for(int i=0; i<histL; i++) fprintf(fp, "%d %d\n", i - (histL-1)/2, histQ[i]);
       fclose(fp);
 
+      //Physical observables
+      //-------------------------------------------------------------      
+      //Polyakov Loops      
+      measPolyakovLoops(gauge, iter, p);
+      
+      //Creutz Ratios
+      measWilsonLoops(gauge, plaq, iter, p);
+
+      //Pion Correlation
+      measPionCorrelation(gauge, top_old, iter, p);
+
+      //Vacuum Trace
+      measVacuumTrace(gauge, top_old, iter, p);
+      //-------------------------------------------------------------
     }
   }
-  
   return 0;
 }
 
-int hmc(Complex gauge[LX][LY][D], param_t p, int iter) {
 
+// HMC Routines
+//---------------------------------------------------------------------
+
+int hmc(Complex gauge[LX][LY][D], param_t p, int iter) {
+  
   int accept = 0;
   
-  double mom[LX][LY][D];
-  Complex gaugeOld[LX][LY][D];
-  Complex phi[LX][LY], chi[LX][LY];
+  double mom[LX][LY][2];
+  Complex gaugeOld[LX][LY][2];
+  Complex phi[LX][LY][2], chi[LX][LY][2];
   double H, Hold;
 
-  copyLat(gaugeOld,gauge);
-  zeroLat(mom);
-  gaussReal_F(mom); 
-
+  copyLat(gaugeOld, gauge);
+  zeroLat(mom); 
+  zeroField(phi);
+  zeroField(chi);
   H = 0.0;
   Hold = 0.0;
+
+  // init mom[LX][LY][D]  <mom^2> = 1;
+  gaussReal_F(mom); 
   
-  if(p.dynamic) {
+  if(p.dynamic == true) {    
     //Create gaussian distributed fermion field chi. chi[LX][LY] E exp(-chi^* chi)
     gaussComplex_F(chi, p);
     //Create pseudo fermion field phi = D chi
-    Dpsi(phi, chi, gauge, p);    
-
-    //Mask out odd sites.
-    for(int x=0; x<LX; x++)  
-      for(int y=0; y<LY; y++)
-	if((x+y)%2 == 1) phi[x][y] = 0.0;
+    g5Dpsi(phi, chi, gauge, p);    
   }
-
-  Hold = measAction(mom, gauge, phi, p, false);
-  trajectory(mom, gauge, phi, p); // MD trajectory using Verlet
-  H = measAction(mom, gauge, phi, p, true);
-
+  
+  if (iter >= p.therm) Hold = measAction(mom, gauge, chi, p, false);
+  trajectory(mom, gauge, phi, p, iter);
+  if (iter >= p.therm) H = measAction(mom, gauge, phi, p, true);
+  
   if (iter >= 2*p.therm) {      
     expcount++;
     expdHAve += exp(-(H-Hold));
     dHAve += (H-Hold);
   }
-  
+
   // Metropolis accept/reject step
   if (iter >= p.therm) {    
-    if ( drand48() > exp(-(H-Hold)) ) copyLat(gauge,gaugeOld);
+    if ( drand48() > exp(-(H-Hold)) ) copyLat(gauge, gaugeOld);
     else accept = 1;
   }
   
   return accept;
 }
 
-void trajectory(double mom[LX][LY][D], Complex gauge[LX][LY][D],
-		Complex phi[LX][LY], param_t p) {
-
+void trajectory(double mom[LX][LY][2], Complex gauge[LX][LY][2],
+		Complex phi[LX][LY][2], param_t p, int iter) {  
+  
   double dtau = p.tau/p.nstep;
   double H = 0.0;
-  Complex guess[LX][LY];
+  Complex guess[LX][LY][2];
 #ifdef USE_ARPACK
-  gaussComplex_F(guess, p);
-  //for(int x=0; x<LX; x++)
-  //for(int y=0; y<LY; y++)
-  //guess[x][y] = drand48();
+  zeroField(guess);
+  /*
+  //deflate using phi as source
+  //Deflation eigenvectors
+  Complex defl_evecs[NEV][LX][LY][2];
+  //Deflation eigenvalues
+  Complex defl_evals[NEV];
+  
+  copyField(guess, phi);
+  arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
+  deflate(guess, phi, defl_evecs, defl_evals, p);
+  */
+#else
+  zeroField(guess);
 #endif
   
   //gauge force
   double fU[LX][LY][D];
-  zeroLat(fU);
   //fermion fermion
   double fD[LX][LY][D];
-  zeroLat(fD);
   //Both arrays are zeroed in forceU/D function call
   
   //Initial half step.
-  //P_{1/2} = P_0 - dtau/2 * (fU + fD)
+  //P_{1/2} = P_0 - dtau/2 * (fU - fD)
   forceU(fU, gauge, p);
-  forceD(fD, gauge, phi, p);
+  forceD(fD, gauge, phi, guess, p);
   update_mom(fU, fD, mom, 0.5*dtau);  
   
   for(int k=1; k<p.nstep; k++) {
@@ -402,32 +351,26 @@ void trajectory(double mom[LX][LY][D], Complex gauge[LX][LY][D],
     //U_{k} = exp(i dtau P_{k-1/2}) * U_{k-1}
     update_gauge(gauge, mom, dtau);
     
-    //P_{k+1/2} = P_{k-1/2} - dtau * (fU + fD)
+    //P_{k+1/2} = P_{k-1/2} - dtau * (fU - fD)
     forceU(fU, gauge, p);
-    forceD(fD, gauge, phi, p);
-    update_mom(fU, fD, mom, dtau);  
-       
-#ifdef USE_ARPACK
-    int ARPACK_iter = arpack_solve_double(gauge, p, guess, 1, k, 0);
-#endif
-    //H = measAction(mom, gauge, phi, p, true);
+    forceD(fD, gauge, phi, guess, p);
+    update_mom(fU, fD, mom, dtau);
   }
   
   //Final half step.
   //U_{n} = exp(i dtau P_{n-1/2}) * U_{n-1}
   update_gauge(gauge, mom, dtau);
   
-  //P_{n} = P_{n-1/2} - dtau/2 * (fU + fD)
+  //P_{n} = P_{n-1/2} - dtau/2 * (fU - fD)
   forceU(fU, gauge, p);
-  forceD(fD, gauge, phi, p);
+  forceD(fD, gauge, phi, guess, p);
   update_mom(fU, fD, mom, 0.5*dtau);
   
   //trajectory complete
-  
 }
 
-void forceU(double fU[LX][LY][D],Complex gauge[LX][LY][D], param_t p) {
-
+void forceU(double fU[LX][LY][2], Complex gauge[LX][LY][2], param_t p) {
+  
   Complex plaq0;
   Complex plaq;
   zeroLat(fU);
@@ -436,8 +379,8 @@ void forceU(double fU[LX][LY][D],Complex gauge[LX][LY][D], param_t p) {
     for(int y=0; y<LY; y++) {
 
       xp1 = (x+1)%LX;
-      yp1 = (y+1)%LY;
       xm1 = (x-1+LX)%LX;
+      yp1 = (y+1)%LY;
       ym1 = (y-1+LY)%LY;
       
       plaq0 = gauge[x][y][0]*gauge[xp1][y][1]*conj(gauge[x][yp1][0])*conj(gauge[x][y][1]);
@@ -446,64 +389,85 @@ void forceU(double fU[LX][LY][D],Complex gauge[LX][LY][D], param_t p) {
       plaq =  gauge[x][ym1][0]*gauge[xp1][ym1][1]*conj(gauge[x][y][0])*conj(gauge[x][ym1][1]);
       fU[x][y][0] -= p.beta*imag(plaq);
 
-      plaq = gauge[x][y][1]*conj(gauge[xm1][yp1][0])*conj(gauge[xm1][y][1])*gauge[xm1][y][0];
+      plaq =  gauge[x][y][1]*conj(gauge[xm1][yp1][0])*conj(gauge[xm1][y][1])*gauge[xm1][y][0];
       fU[x][y][1] += p.beta*imag(plaq);
 
-      //This plaquette was aleady computed.
-      fU[x][y][1] -= p.beta*imag(plaq0);
-  
-      //cout << x  << y <<" Forces = "<< fU[x][y][0] << "   " <<fU[x][y][1] << endl;
+      //This plaquette was aleady computed. We want the conjugate.
+      fU[x][y][1] -= p.beta*imag(plaq0);      
     }
 }
 
+// let dD \equiv (d/dtheta D)
+//
+// d/dtheta (phi^* (DD^dag)^-1 phi) = -((DD^dag)^1 phi)^dag ([dD]*D^dag + D*[dD^dag]) ((DD^dag)^-1 phi)
+//
+// *****  Should optimize this to operate only on EVEN sites. ****
 
-
-
-// VD(theta) = chi*_e (1/D D^dag) chi_e
-//  
-// D chi = phi   and phi gausian.
-//  
-// fD = - \dd_theta VD(theta) 
-//    =   chi*_e (1/D D^dag)_ee [  D^\dag (\dd_theta D) + (\dd_theta D^\dag) D ]_ee
-//                                (1/D D^dag)_ee chi_e chi_e 
-//  
-// Should optimze this to operate only on EVEN sites.
-// chi_even, chitmp_even, Dchitmp_odd
+void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][2], Complex guess[LX][LY][2], param_t p){
   
-void forceD(double fD[LX][LY][D], Complex gauge[LX][LY][D], Complex chi[LX][LY], param_t p) {
+  if(p.dynamic == true) {
 
-  if(p.dynamic) {
-    Complex chitmp[LX][LY];
-    Complex Dchitmp[LX][LY];
-    zeroField(chitmp);
-    zeroField(Dchitmp);
     zeroLat(fD);
     
-    Ainvpsi(chitmp, chi, chitmp, gauge, p); // note chitmp = 0 for ODD
-    Dpsi(Dchitmp, chitmp, gauge, p); // restrict to Dslash, m = 0
+    //phip = (DD^dag)^-1 * phi
+    Complex phip[LX][LY][2];
+    zeroField(phip);
     
-    for(int x=0; x<LX; x++)
-      for(int y=0; y<LY; y++){
-	if((x+y)%2 == 1)  chitmp[x][y] = Complex(0.0,0.0);
-	if((x+y)%2 == 0) Dchitmp[x][y] = Complex(0.0,0.0);
-      }
+    //Ainvpsi inverts using the DdagD (g5Dg5D) operator, returns
+    // phip = (D^-1 * Ddag^-1) phi = (D^-1 * g5 * D^-1 g5) phi.
+    Complex guess[LX][LY][2]; //Initial guess to CG
+    zeroField(guess);
+    Ainvpsi(phip, phi, guess, gauge, p);
     
-    double eta1;
+    //g5Dphi = g5D * phip
+    Complex g5Dphi[LX][LY][2];
+    zeroField(g5Dphi);
+    g5Dpsi(g5Dphi, phip, gauge, p);
+    
+    int xp1, xm1, yp1, ym1;
+    double r = 1.0;
     for(int x=0; x<LX; x++)
       for(int y=0; y<LY; y++) {
-	eta1 =(1.0 - 2.0*(x%2));
 
-	//Odd site
-	if((x+y+1)%2 == 0){ 
-	  fD[x][y][0] += 2.0*imag(conj(Dchitmp[x][y]) * gauge[x][y][0] * chitmp[(x+1)%LX][y]);
-	  fD[x][y][1] += 2.0*eta1*imag(conj(Dchitmp[x][y]) * gauge[x][y][1] * chitmp[x][(y+1)%LY]);
-	}
-	else {
-	  //even site
-	  fD[x][y][0] += 2.0*imag(conj(Dchitmp[(x+1)%LX][y]) * conj(gauge[x][y][0]) * chitmp[x][y]);
-	  fD[x][y][1] += 2.0*eta1*imag(conj(Dchitmp[x][(y+1)%LY]) * conj(gauge[x][y][1]) * chitmp[x][y]);
-	}	
-      }	    
+	xp1 = (x+1)%LX;
+	yp1 = (y+1)%LY;
+	xm1 = (x-1+LX)%LX;
+	ym1 = (y-1+LY)%LY;	
+	
+	//mu = 0
+	//upper
+	// | r  1 | 
+	// | 1  r |
+	//lower
+	// | r -1 |
+	// | 1 -r |					
+	fD[x][y][0] += real(I*((conj(gauge[x][y][0]) *
+				(conj(phip[xp1][y][0]) * (r*g5Dphi[x][y][0] +   g5Dphi[x][y][1]) -
+				 conj(phip[xp1][y][1]) * (  g5Dphi[x][y][0] + r*g5Dphi[x][y][1])))
+			       -
+			       (gauge[x][y][0] *
+				(conj(phip[x][y][0]) * (r*g5Dphi[xp1][y][0] -   g5Dphi[xp1][y][1]) +
+				 conj(phip[x][y][1]) * (  g5Dphi[xp1][y][0] - r*g5Dphi[xp1][y][1])))
+			       )
+			    );	
+	
+	//mu = 1
+	//upper
+	// | r -i | 
+	// | i  r |
+	//lower
+	// | r  i |
+	// | i -r |
+	fD[x][y][1] += real(I*((conj(gauge[x][y][1]) *
+				(conj(phip[x][yp1][0]) * (r*g5Dphi[x][y][0] - I*g5Dphi[x][y][1]) -
+				 conj(phip[x][yp1][1]) * (I*g5Dphi[x][y][0] + r*g5Dphi[x][y][1])))
+			       -			       
+			       (gauge[x][y][1] *
+				(conj(phip[x][y][0]) * (r*g5Dphi[x][yp1][0] + I*g5Dphi[x][yp1][1]) +
+				 conj(phip[x][y][1]) * (I*g5Dphi[x][yp1][0] - r*g5Dphi[x][yp1][1])))
+			       )
+			    );	
+      }
   }
 }
 
@@ -524,3 +488,18 @@ void update_gauge(Complex gauge[LX][LY][D], double mom[LX][LY][D], double dtau){
       for(int mu=0; mu<D; mu++)
 	gauge[x][y][mu] *= polar(1.0, mom[x][y][mu] * dtau);
 }
+
+
+// Do a parity flip based on eqn 4 of arXiv:1203.2560v2
+// void doParityFlip(Complex gauge[LX][LY][D], param_t p) {
+//   Complex parity_gauge[LX][LY][D];
+//   for (int x=0; x<LX; x++) {
+//     for (int y=0; y<LY; y++) {
+//       //parity_gauge[(-x-1+2*L)%L][y][0] = conj(gauge[x][y][0]);
+//       //parity_gauge[(-x+2*L)%L][y][1] = gauge[x][y][1];
+//     }
+//   }
+//   copyLat(gauge, parity_gauge);
+// }
+
+//-------------------------------------------------------------------------------

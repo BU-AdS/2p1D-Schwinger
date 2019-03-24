@@ -584,24 +584,4 @@ void arpack_solve(const Complex gauge[LX][LY][2], Complex defl_evecs[NEV][LX][LY
   return;
 }
 
-void deflate(Complex guess_defl[LX][LY][2], Complex guess[LX][LY][2],
-	     Complex evecs[NEV][LX][LY][2],
-	     Complex evals[NEV], param_t p) {
-
-#ifdef USE_ARPACK
-  
-  zeroField(guess_defl);
-  Complex scalar;
-  //Deflate each converged eigenpair from the guess
-  // guess_defl = (v * lambda^-1 * v^dag) * guess
-  for(int i=0; i<NEV; i++) {
-    
-    //Compute scalar part: s = (lambda)^-1 * (v^dag * guess)
-    scalar = dotField(evecs[i], guess);
-    scalar /= real(evals[i]);
-    //Accumulate in guess defl_guess: defl_guess = defl_guess + v * s
-    caxpy(scalar, evecs[i], guess_defl);
-  }
-#endif
-}
 #endif

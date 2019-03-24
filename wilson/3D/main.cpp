@@ -7,7 +7,6 @@
 
 using namespace std;
 
-//#define L 12
 #define LX 16
 #define LY 32
 #define LZ 5
@@ -29,6 +28,7 @@ typedef complex<double> Complex;
 #include "measurementHelpers3D.h"
 #include "fermionHelpers.h"
 #include "dOpHelpers.h"
+#include "inverters.h"
 
 #ifdef USE_ARPACK
 #include "arpack_interface_wilson.h"
@@ -47,9 +47,8 @@ void forceD(double fD[LX][LY][2], const Complex gauge[LX][LY][2],
 int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter);
 void forceU(double fU[LX][LY][LZ][D], const Complex gauge[LX][LY][LZ][D], param_t p);
 void update_mom(double fU[LX][LY][LZ][D], double fD[LX][LY][2],
-		double mom[LX][LY][LZ][D], param_t p, double dtau);
-void update_gauge(Complex gauge[LX][LY][LZ][D], double mom[LX][LY][LZ][D],
-		  param_t p, double dtau);
+		double mom[LX][LY][LZ][D], double dtau, param_t p);
+void update_gauge(Complex gauge[LX][LY][LZ][D], double mom[LX][LY][LZ][D], double dtau, param_t p);
 //----------------------------------------------------------------------------
 
 //Global variables.
@@ -125,32 +124,6 @@ int main(int argc, char **argv) {
   Complex gauge[LX][LY][LZ][D];  
   Complex gauge2D[LX][LY][2];
   
-  double sigma[LX/2];
-  Complex pLoops[LX/2];
-  Complex wLoops[LX/2][LY/2];
-  
-  for(int x=0; x<LX/2; x++) {
-    sigma[x] = 0.0;
-    pLoops[x] = 0.0;
-    for(int y=0; y<LY/2; y++) {
-      wLoops[x][y] = Complex(0.0,0.0);
-    }
-  }
-
-  //Up type fermion prop
-  Complex propUp[LX][LY][2];
-  //Down type fermion prop
-  Complex propDn[LX][LY][2];
-  //fermion prop CG guess
-  Complex propGuess[LX][LY][2];
-  //Deflation eigenvectors
-  Complex defl_evecs[NEV][LX][LY][2];
-  //Deflation eigenvalues
-  Complex defl_evals[NEV];
-  
-  double pion_corr[LY];
-  double vacuum_trace[2] = {0.0, 0.0};
-  
   int count = 0;
   string name;
   fstream outPutFile;
@@ -165,7 +138,8 @@ int main(int argc, char **argv) {
   //Start simulation
   double time0 = -((double)clock());
   int iter_offset = 0;
-  int iter;
+  int iter = 0;
+  cout << setprecision(16);
 
   if(p.checkpointStart > 0) {
 
@@ -204,32 +178,36 @@ int main(int argc, char **argv) {
     //Perform HMC step
     accept = hmc(gauge, p, iter);
 
-    //HMC acceptance
+    //HMC acceptance rate
     accepted += accept;
 
     for(int z=0; z<LZ; z++) {
-
-      //All observables will be measured on the extracted 2D slice 
-      extractLatSlice(gauge, gauge2D, z);
       
-      //Topology
-      top = measTopCharge(gauge2D, p);
-      top_int[z] = round(top);
-      name = "data/top/top_charge_Lz" + to_string(z);
-      constructName(name, p);
-      name += ".dat";
-      sprintf(fname, "%s", name.c_str());
-      fp = fopen(fname, "a");
-      fprintf(fp, "%d %d\n", iter, top_int[z]);
-      fclose(fp);
+      //Measure the topological charge if trajectory is accepted
+      //---------------------------------------------------------------------
+      if(accept == 1) {
+	
+	extractLatSlice(gauge, gauge2D, z);
 
-      index[z] = top_int[z] + (histL-1)/2;
-      histQ[z][index[z]]++;
-      if(top_old[z] == top_int[z]) top_stuck[z]++;
-      top_old[z] = top_int[z];
-      
+	top = measTopCharge(gauge2D, p);
+	top_int[z] = round(top);
+	name = "data/top/top_charge_Lz" + to_string(z);
+	constructName(name, p);
+	name += ".dat";
+	sprintf(fname, "%s", name.c_str());
+	fp = fopen(fname, "a");
+	fprintf(fp, "%d %d\n", iter, top_int[z]);
+	fclose(fp);
+	
+	index[z] = top_int[z] + (histL-1)/2;
+	histQ[z][index[z]]++;
+	if(top_old[z] == top_int[z]) top_stuck[z]++;
+	top_old[z] = top_int[z];
+      }
     }
 
+    //Perform Measurements
+    //---------------------------------------------------------------------
     if( (iter+1)%p.skip == 0) {
       
       count++; //Number of measurements taken
@@ -277,204 +255,27 @@ int main(int argc, char **argv) {
 		expdHAve/hmccount,
 		(double)accepted/(count*p.skip));
 	fclose(fp);
-      }
-      
-      //Compute gauge observables
-      for(int z=0; z<LZ; z++) {
-
+	
+	//Physical observables
+	//-------------------------------------------------------------
 	//All observables will be measured on the extracted 2D slice 
 	extractLatSlice(gauge, gauge2D, z);
 	
-	//Measure Polyakov loops
-	for(int i=0; i<LX/2; i++) pLoops[i] = 0.0;
-	measPolyakovLoops(gauge2D, pLoops);	
+	//Polyakov Loops      
+	measPolyakovLoops(gauge2D, iter, p);
 	
-	name = "data/polyakov/polyakov_Lz" + to_string(z);
-	constructName(name, p);
-	name += ".dat";
-	sprintf(fname, "%s", name.c_str());
-	fp = fopen(fname, "a");
-	fprintf(fp, "%d ", iter + 1);
-	for(int size=1; size<LX/2; size++)
-	  fprintf(fp, "%.16e %.16e ",
-		  real(pLoops[size]),
-		  imag(pLoops[size]) );
-	fprintf(fp, "\n");
-	fclose(fp);
-	
-	name = "data/polyakov/polyakov_ratios_Lz" + to_string(z);
-	constructName(name, p);
-	name += ".dat";
-	sprintf(fname, "%s", name.c_str());
-	fp = fopen(fname, "a");
-	fprintf(fp, "%d ", iter + 1);
-	for(int size=1; size<LX/2-1; size++)
-	  fprintf(fp, "%.16e ",
-		  real(pLoops[size+1])/real(pLoops[size]));
-	fprintf(fp, "\n");
-	fclose(fp);
-
-
 	//Creutz Ratios
-	zeroWL(wLoops);
-	measWilsonLoops(gauge2D, wLoops, p);
+	measWilsonLoops(gauge2D, plaq[(LZ-1)/2], iter, p);
 	
-	for(int size=1; size<LX/2; size++) {
-	  sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
-				   (real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
-	  
-	  sigma[size] += - log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
-				   (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
-	  
-	  sigma[size] *= 0.5;
-	}
+	//Pion Correlation
+	measPionCorrelation(gauge2D, top_old[(LZ-1)/2], iter, p);
 	
-	name = "data/creutz/creutz_Lz" + to_string(z);
-	constructName(name, p);
-	name += ".dat";
-	sprintf(fname, "%s", name.c_str());
-	fp = fopen(fname, "a");
-	fprintf(fp, "%d %.16e ", iter+1, -log(abs(plaq[z])) );
-	for(int size=2; size<LX/2; size++)
-	  fprintf(fp, "%.16e ", sigma[size]);
-	fprintf(fp, "\n");
-	fclose(fp);
+	//Vacuum Trace
+	measVacuumTrace(gauge2D, top_old[(LZ-1)/2], iter, p);
+	//-------------------------------------------------------------
 	
-	for(int sizex=2; sizex<LX/2; sizex++)
-	  for(int sizey=sizex-1; (sizey < LY/2 && sizey <= sizex+1); sizey++) {
-	    name = "data/rect/rectWL_Lz" + to_string(z);
-	    name += "_" + to_string(sizex) + "_" + to_string(sizey);
-	    constructName(name, p);
-	    name += ".dat";
-	    sprintf(fname, "%s", name.c_str());
-	    fp = fopen(fname, "a");
-	    fprintf(fp, "%d %.16e %.16e\n", iter+1, real(wLoops[sizex][sizey]), imag(wLoops[sizex][sizey]));	    
-	    fclose(fp);
-	  }
-	
-	//Topological Historgram
-	name = "data/top/top_hist+Lz" + to_string(z);
-	constructName(name, p);
-	name += ".dat";
-	sprintf(fname, "%s", name.c_str());
-	fp = fopen(fname, "w");
-	for(int i=0; i<histL; i++) fprintf(fp, "%d %d\n", i - (histL-1)/2, histQ[z][i]);
-	fclose(fp);
-
-	if(z == (LZ-1)/2) {
-	
-	  //Pion correlation function
-	  //                              |----------------|
-	  //                              |        |-------|---------|
-	  //  < pi(x) | pi(0) > = < ReTr[up(x) g5 dn*(x) | up*(0) g5 dn(0)] >     
-	  //                    = < ReTr(G[x,0] G*[x,0]) >
-	  //
-	  // if H = Hdag, Tr(H * Hdag) = Sum_{n,m} (H_{n,m}) * (H_{n,m})^*,
-	  // i.e., the sum of the modulus squared of each element
-      
-	  Complex source[LX][LY][2];
-	  Complex Dsource[LX][LY][2];
-      
-	  //Up type source
-	  zeroField(source);
-	  zeroField(Dsource);
-	  zeroField(propUp);
-	  zeroField(propGuess);
-	  source[0][0][0] = cUnit;
-	  // up -> (g5Dg5) * up
-	  g5psi(source);
-	  g5Dpsi(Dsource, source, gauge2D, p);
-      
-#ifdef USE_ARPACK
-	  arpack_solve(gauge2D, defl_evecs, defl_evals, 0, 0, p);
-#endif
-	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-	  // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up
-	  Ainvpsi(propUp, Dsource, propGuess, gauge2D, p);
-      
-	  //Down type source
-	  zeroField(source);
-	  zeroField(Dsource);
-	  zeroField(propDn);
-	  source[0][0][1] = cUnit;	    
-      
-	  // dn -> (g5Dg5) * dn
-	  g5psi(source);
-	  g5Dpsi(Dsource, source, gauge2D, p);
-
-	  deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-	  // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn
-	  Ainvpsi(propDn, Dsource, propGuess, gauge2D, p);
-      
-	  //Let y be the 'time' dimension
-	  double corr = 0.0;
-	  for(int y=0; y<LY; y++) {
-	    //initialise
-	    pion_corr[y] = 0.0;
-	    //Loop over space and spin, fold propagator
-	    for(int x=0; x<LX; x++)
-	      corr = (conj(propDn[x][y][0]) * propDn[x][y][0] +
-		      conj(propDn[x][y][1]) * propDn[x][y][1] +
-		      conj(propUp[x][y][0]) * propUp[x][y][0] +
-		      conj(propUp[x][y][1]) * propUp[x][y][1]).real();
-	
-	    if(y<LY/2+1) pion_corr[y] += corr;
-	    else pion_corr[LY-y] += corr;	    
-	  }
-            
-	  //pion Correlation
-	  name = "data/pion/pion";
-	  constructName(name, p);
-	  name += ".dat";
-	  sprintf(fname, "%s", name.c_str());
-	  fp = fopen(fname, "a");
-	  fprintf(fp, "%d ", iter+1);
-	  for(int t=0; t<LY/2; t++)
-	    fprintf(fp, "%.16e ", pion_corr[t]);
-	  fprintf(fp, "\n");
-	  fclose(fp);
-      
-	  //Disconnected
-	  //Up type source
-	  zeroField(source);
-	  zeroField(Dsource);
-	  zeroField(propUp);
-	  for(int x=0; x<LX; x++) {
-	    for(int y=0; y<LY; y++) {
-	      source[x][1][0] = cUnit;
-	  
-	      g5psi(source);
-	      g5Dpsi(Dsource, source, gauge2D, p);
-	      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-	      Ainvpsi(propUp, Dsource, propGuess, gauge2D, p);
-	  
-	      //Down type source
-	      zeroField(source);
-	      zeroField(Dsource);
-	      zeroField(propDn);
-	      source[x][y][1] = cUnit;
-
-	      g5psi(source);
-	      g5Dpsi(Dsource, source, gauge2D, p);
-	      deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-	      Ainvpsi(propDn, Dsource, propGuess, gauge2D, p);
-
-	      vacuum_trace[0] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
-				  conj(propDn[x][y][1]) * propDn[x][y][1] +
-				  conj(propUp[x][y][0]) * propUp[x][y][0] +
-				  conj(propUp[x][y][1]) * propUp[x][y][1]).real();
-	  
-	      vacuum_trace[1] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
-				  conj(propDn[x][y][1]) * propDn[x][y][1] +
-				  conj(propUp[x][y][0]) * propUp[x][y][0] +
-				  conj(propUp[x][y][1]) * propUp[x][y][1]).imag();
-	  
-	    }
-	  }
-	  cout << "Vacuum trace = (" << vacuum_trace[0]/(count*LX*LY) << "," << vacuum_trace[1]/(count*LX*LX) << ")" << endl;	  
-	}
       }
-    }
+    }    
   }
   
   return 0;
@@ -561,34 +362,33 @@ void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
   double fD[LX][LY][2];
   zeroField(fD);
   
-
   //Initial half step.
   //P_{1/2} = P_0 - dtau/2 * (fU + fD)
   forceU(fU, gauge, p);
   forceD(fD, gauge2D, phi, p);
-  update_mom(fU, fD, mom, p, 0.5*dtau);  
+  update_mom(fU, fD, mom, 0.5*dtau, p);  
   
   for(int k=1; k<p.nstep; k++) {
     
     //U_{k} = exp(i dtau P_{k-1/2}) * U_{k-1}
-    update_gauge(gauge, mom, p, dtau);
+    update_gauge(gauge, mom, dtau, p);
     
     //P_{k+1/2} = P_{k-1/2} - dtau * (fU - fD)
     forceU(fU, gauge, p);
     extractLatSlice(gauge, gauge2D, (LZ-1)/2);
     forceD(fD, gauge2D, phi, p);
-    update_mom(fU, fD, mom, p, dtau);  
+    update_mom(fU, fD, mom, dtau, p);  
   }
   
   //Final half step.
   //U_{n} = exp(i dtau P_{n-1/2}) * U_{n-1}
-  update_gauge(gauge, mom, p, dtau);
+  update_gauge(gauge, mom, dtau, p);
   
   //P_{n} = P_{n-1/2} - dtau/2 * (fU + fD)
   forceU(fU, gauge, p);
   extractLatSlice(gauge, gauge2D, (LZ-1)/2);
   forceD(fD, gauge2D, phi, p);
-  update_mom(fU, fD, mom, p, 0.5*dtau);
+  update_mom(fU, fD, mom, 0.5*dtau, p);
   
   //trajectory complete
 }
@@ -759,21 +559,23 @@ void forceD(double fD[LX][LY][2], const Complex gauge[LX][LY][2], Complex phi[LX
 }
 
 //P_{k+1/2} = P_{k-1/2} - dtau * (fU + fD)
-void update_mom(double fU[LX][LY][LZ][D], double fD[LX][LY][2], double mom[LX][LY][LZ][D], param_t p, double dtau){
+void update_mom(double fU[LX][LY][LZ][D], double fD[LX][LY][2], double mom[LX][LY][LZ][D], double dtau, param_t p){
+  
+  int x,y,z,mu;
   
   //Always update from the 2D gauge fields
-  for(int x=0; x<LX; x++)
-    for(int y=0; y<LY; y++) 
-      for(int z=0; z<LZ; z++)
-	for(int mu=0; mu<2; mu++) {
+  for(x=0; x<LX; x++)
+    for(y=0; y<LY; y++) 
+      for(z=0; z<LZ; z++)
+	for(mu=0; mu<2; mu++) {
 	  mom[x][y][z][mu] -= fU[x][y][z][mu]*dtau;	  
 	}
   
   //Update from the fermion field if dynamic
   if(p.dynamic == true) {
-    for(int x=0; x<LX; x++)
-      for(int y=0; y<LY; y++)
-	for(int mu=0; mu<2; mu++) {
+    for(x=0; x<LX; x++)
+      for(y=0; y<LY; y++)
+	for(mu=0; mu<2; mu++) {
 	  mom[x][y][(LZ-1)/2][mu] += fD[x][y][mu]*dtau;
 	}  
   }
@@ -781,22 +583,24 @@ void update_mom(double fU[LX][LY][LZ][D], double fD[LX][LY][2], double mom[LX][L
       
 
 //U_{k} = exp(i dtau P_{k-1/2}) * U_{k-1}
-void update_gauge(Complex gauge[LX][LY][LZ][D], double mom[LX][LY][LZ][D], param_t p, double dtau){
-
+void update_gauge(Complex gauge[LX][LY][LZ][D], double mom[LX][LY][LZ][D], double dtau, param_t p){
+  
+  int x,y,z,mu;
+  
   //Always update from the 2D gauge fields
-  for(int x=0; x<LX; x++)
-    for(int y=0; y<LY; y++)
-      for(int z=0; z<LZ; z++)
-	for(int mu=0; mu<2; mu++) {
+  for(x=0; x<LX; x++)
+    for(y=0; y<LY; y++)
+      for(z=0; z<LZ; z++)
+	for(mu=0; mu<2; mu++) {
 	  gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * dtau);
 	}
   
   //Update from the extra dimension if not z locked.
   if(p.lockedZ == false) {
-    for(int x=0; x<LX; x++)
-      for(int y=0; y<LY; y++) 
-	for(int z=0; z<LZ; z++)
-	  for(int mu=2; mu<D; mu++) {
+    for(x=0; x<LX; x++)
+      for(y=0; y<LY; y++) 
+	for(z=0; z<LZ; z++)
+	  for(mu=2; mu<D; mu++) {
 	    gauge[x][y][z][mu] *= polar(1.0, mom[x][y][z][mu] * dtau);
 	  }
   }

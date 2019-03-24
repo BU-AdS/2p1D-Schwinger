@@ -10,6 +10,12 @@
 #include "utils.h"
 #include "fermionHelpers.h"
 #include "dOpHelpers.h"
+#include "inverters.h"
+
+#ifdef USE_ARPACK
+#include "arpack_interface_wilson.h"
+#endif
+
 
 using namespace std;
 
@@ -17,13 +23,14 @@ using namespace std;
 // 2 Dimensional routines 
 //-----------------------------------------------------------------------------------
 
-//======================================================================
 //   Creutz     exp[ -sigma L^2] exp[ -sigma(L-1)(L-1)]
 //   ratio:    ---------------------------------------  = exp[ -sigma]
 //              exp[ -sigma (L-1)L] exp[-sigma L(L-1)]
-//======================================================================
+void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p){
 
-void measWilsonLoops(Complex gauge[LX][LY][2], Complex wLoops[LX/2][LY/2], param_t p){
+  Complex wLoops[LX/2][LY/2];
+  zeroWL(wLoops);
+  double sigma[LX/2];  
   
   Complex w;
   int p1, p2;
@@ -59,12 +66,55 @@ void measWilsonLoops(Complex gauge[LX][LY][2], Complex wLoops[LX/2][LY/2], param
 	  wLoops[Xrect][Yrect] += w*inv_Lsq;
 	}
     }
-  }  
+  }
+
+  //Compute string tension
+  for(int size=1; size<LX/2; size++) {
+    sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
+			     (real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
+    
+    sigma[size] += - log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
+			     (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
+    
+    sigma[size] *= 0.5;
+    
+  }
+
+  string name;
+  char fname[256];
+  FILE *fp;
+  
+  name = "data/creutz/creutz";
+  constructName(name, p);
+  name += ".dat";
+  sprintf(fname, "%s", name.c_str());
+  fp = fopen(fname, "a");
+  fprintf(fp, "%d %.16e ", iter+1, -log(abs(plaq)) );
+  for(int size=2; size<LX/2; size++)
+    fprintf(fp, "%.16e ", sigma[size]);
+  fprintf(fp, "\n");
+  fclose(fp);
+  
+  for(int sizex=2; sizex<LX/2; sizex++)
+    for(int sizey=sizex-1; (sizey < LY/2 && sizey <= sizex+1); sizey++) {
+      name = "data/rect/rectWL";
+      name += "_" + to_string(sizex) + "_" + to_string(sizey);
+      constructName(name, p);
+      name += ".dat";
+      sprintf(fname, "%s", name.c_str());
+      fp = fopen(fname, "a");
+      fprintf(fp, "%d %.16e %.16e\n", iter+1, real(wLoops[sizex][sizey]), imag(wLoops[sizex][sizey]));	    
+      fclose(fp);
+    }
+  
   return;
 }
 
 //Polyakov loops. x is the spatial dim, y is the temporal dim.
-void measPolyakovLoops(Complex gauge[LX][LY][2], Complex pLoops[LX/2]){
+void measPolyakovLoops(Complex gauge[LX][LY][2], int iter, param_t p){
+
+  Complex pLoops[LX/2];
+  for(int x=0; x<LX/2; x++) pLoops[x] = 0.0;
   
   Complex w1, w2;
   //Eack polyakov loop correlation is defined by its delta x value.
@@ -88,8 +138,198 @@ void measPolyakovLoops(Complex gauge[LX][LY][2], Complex pLoops[LX/2]){
       
     }
   }
-    
+
+  string name;
+  char fname[256];
+  FILE *fp;
+  
+  name= "data/polyakov/polyakov";
+  constructName(name, p);
+  name += ".dat";
+  sprintf(fname, "%s", name.c_str());
+  fp = fopen(fname, "a");
+  fprintf(fp, "%d ", iter+1);
+  for(int size=1; size<LX/2; size++)
+    fprintf(fp, "%.16e %.16e ",
+	    real(pLoops[size]),
+	    imag(pLoops[size]) );
+  fprintf(fp, "\n");
+  fclose(fp);
+  
+  name = "data/polyakov/polyakov_ratios";
+  constructName(name, p);
+  name += ".dat";  
+  sprintf(fname, "%s", name.c_str());
+  fp = fopen(fname, "a");
+  fprintf(fp, "%d ", iter+1);
+  for(int size=1 ; size < LX/2-1; size++)
+    fprintf(fp, "%.16e ",
+	    real(pLoops[size+1])/real(pLoops[size]));
+  fprintf(fp, "\n");
+  fclose(fp);
+  
   return;
+}
+
+//Pion correlation function
+//                              |----------------|
+//                              |        |-------|---------|
+//  < pi(x) | pi(0) > = < ReTr[up(x) g5 dn*(x) | up*(0) g5 dn(0)] >     
+//                    = < ReTr(G[x,0] G*[x,0]) >
+//
+// if H = Hdag, Tr(H * Hdag) = Sum_{n,m} (H_{n,m}) * (H_{n,m})^*,
+// i.e., the sum of the modulus squared of each element
+
+void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
+  
+  //Up type fermion prop
+  Complex propUp[LX][LY][2];
+  //Down type fermion prop
+  Complex propDn[LX][LY][2];
+  //fermion prop CG guess
+  Complex propGuess[LX][LY][2];
+  //Deflation eigenvectors
+  Complex defl_evecs[NEV][LX][LY][2];
+  //Deflation eigenvalues
+  Complex defl_evals[NEV];
+      
+  double pion_corr[LY];
+            
+  Complex source[LX][LY][2];
+  Complex Dsource[LX][LY][2];
+
+  //Up type source
+  zeroField(source);
+  zeroField(Dsource);
+  zeroField(propUp);
+  zeroField(propGuess);
+  source[0][0][0] = cUnit;
+  // up -> (g5Dg5) * up
+  g5psi(source);
+  g5Dpsi(Dsource, source, gauge, p);
+
+#ifdef USE_ARPACK
+  arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
+#endif
+
+  // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up
+  if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+  Ainvpsi(propUp, Dsource, propGuess, gauge, p);
+
+  //Down type source
+  zeroField(source);
+  zeroField(Dsource);
+  zeroField(propDn);
+  source[0][0][1] = cUnit;	    
+      
+  // dn -> (g5Dg5) * dn
+  g5psi(source);
+  g5Dpsi(Dsource, source, gauge, p);
+
+  if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+  // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn
+  Ainvpsi(propDn, Dsource, propGuess, gauge, p);
+      
+  //Let y be the 'time' dimension
+  double corr = 0.0;
+  for(int y=0; y<LY; y++) {
+    //initialise
+    pion_corr[y] = 0.0;
+    //Loop over space and spin, fold propagator
+    for(int x=0; x<LX; x++)
+      corr = (conj(propDn[x][y][0]) * propDn[x][y][0] +
+	      conj(propDn[x][y][1]) * propDn[x][y][1] +
+	      conj(propUp[x][y][0]) * propUp[x][y][0] +
+	      conj(propUp[x][y][1]) * propUp[x][y][1]).real();
+	
+    if ( y < ((LY/2)+1) ) pion_corr[y] += corr;
+    else pion_corr[LY-y] += corr;	    
+  }
+      
+      
+  //pion Correlation
+  string name = "data/pion/pion_Q" + std::to_string(abs(top));
+  constructName(name, p);
+  name += ".dat";
+  
+  char fname[256];
+  sprintf(fname, "%s", name.c_str());
+  FILE *fp = fopen(fname, "a");
+  fprintf(fp, "%d ", iter+1);
+  for(int t=0; t<LY/2; t++)
+    fprintf(fp, "%.16e ", pion_corr[t]);
+  fprintf(fp, "\n");
+  fclose(fp);
+
+}
+
+void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
+
+  //Up type fermion prop
+  Complex propUp[LX][LY][2];
+  //Down type fermion prop
+  Complex propDn[LX][LY][2];
+  //fermion prop CG guess
+  Complex propGuess[LX][LY][2];
+  //Deflation eigenvectors
+  Complex defl_evecs[NEV][LX][LY][2];
+  //Deflation eigenvalues
+  Complex defl_evals[NEV];
+      
+  double vacuum_trace[2] = {0.0, 0.0};
+
+  Complex source[LX][LY][2];
+  Complex Dsource[LX][LY][2];
+  
+  //Disconnected
+  //Up type source
+  zeroField(source);
+  zeroField(Dsource);
+  zeroField(propUp);
+  for(int x=0; x<LX; x++) {
+    for(int y=0; y<LY; y++) {
+      source[x][1][0] = cUnit;
+      
+      g5psi(source);
+      g5Dpsi(Dsource, source, gauge, p);
+      if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+      Ainvpsi(propUp, Dsource, propGuess, gauge, p);
+      
+      //Down type source
+      zeroField(source);
+      zeroField(Dsource);
+      zeroField(propDn);
+      source[x][y][1] = cUnit;
+      
+      g5psi(source);
+      g5Dpsi(Dsource, source, gauge, p);
+      if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
+      Ainvpsi(propDn, Dsource, propGuess, gauge, p);
+      
+      vacuum_trace[0] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
+			  conj(propDn[x][y][1]) * propDn[x][y][1] +
+			  conj(propUp[x][y][0]) * propUp[x][y][0] +
+			  conj(propUp[x][y][1]) * propUp[x][y][1]).real();
+      
+      vacuum_trace[1] += (conj(propDn[x][y][0]) * propDn[x][y][0] +
+			  conj(propDn[x][y][1]) * propDn[x][y][1] +
+			  conj(propUp[x][y][0]) * propUp[x][y][0] +
+			  conj(propUp[x][y][1]) * propUp[x][y][1]).imag();
+      
+    }
+  }
+
+  string name = "data/vacuum/vacuum_Q" + std::to_string(abs(top));
+  constructName(name, p);
+  name += ".dat";
+  
+  char fname[256];
+  sprintf(fname, "%s", name.c_str());
+  FILE *fp = fopen(fname, "a");
+  fprintf(fp, "%d ", iter+1);
+  fprintf(fp, "%.16e %.16e\n", vacuum_trace[0], vacuum_trace[1]);
+  fclose(fp);
+  
 }
 
 double measTopCharge(Complex gauge[LX][LY][2], param_t p){
