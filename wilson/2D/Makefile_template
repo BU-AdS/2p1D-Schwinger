@@ -4,7 +4,7 @@ ARPACK_LIB= -L${ARPACK}/lib/ -larpack
 ARPACK_FLAGS= -DUSE_ARPACK
 #============================================================
 
-TARGET  = 2D-Wilson-LX16-LY16
+TARGET  = 2D-Wilson-LX__LX__-LY__LY__
 SOURCES = main.cpp
 OBJS    = main.o
 INC_PATH=-I/Users/deanhowarth/2p1D/2p1D-Schwinger/include

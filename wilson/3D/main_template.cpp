@@ -7,9 +7,9 @@
 
 using namespace std;
 
-#define LX 16
-#define LY 32
-#define LZ 5
+#define LX __LX__
+#define LY __LY__
+#define LZ __LZ__
 #define D 3
 #define NEV 24
 #define NKR 32
