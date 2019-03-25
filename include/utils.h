@@ -48,6 +48,13 @@ typedef struct{
   double amin = 0.1;
   int n_poly = 100;
   bool ARPACK_verbose = false;
+
+  //Measurements
+  bool measPL = false; //Polyakov loops
+  bool measWL = false; //Wilson loop and Creutz ratios
+  bool measPC = false; //Pion
+  bool measVT = false; //Vacuum trace
+  int loopMax = 8;
   
 } param_t;
 

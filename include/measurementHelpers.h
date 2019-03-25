@@ -27,42 +27,40 @@ using namespace std;
 //   ratio:    ---------------------------------------  = exp[ -sigma]
 //              exp[ -sigma (L-1)L] exp[-sigma L(L-1)]
 void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p){
-
+  
   Complex wLoops[LX/2][LY/2];
   zeroWL(wLoops);
   double sigma[LX/2];  
   
   Complex w;
-  int p1, p2;
-  Complex smeared[LX][LY][2];
+  int p1, p2, dx, dy, x, y;
   double inv_Lsq = 1.0/(LX*LY);
-  smearLink(smeared, gauge, p);
-  
+
   //Loop over all X side sizes of rectangle 
-  for(int Xrect=1; Xrect<LX/2; Xrect++) {
+  for(int Xrect=1; Xrect<p.loopMax; Xrect++) {
       
     //Loop over all Y side sizes of rectangle
-    for(int Yrect=1; Yrect<LY/2; Yrect++) {
-
+    for(int Yrect=1; Yrect<p.loopMax; Yrect++) {
+      
       //Loop over all x,y
-      for(int x=0; x<LX; x++)
-	for(int y=0; y<LY; y++){
+      for(x=0; x<LX; x++)
+	for(y=0; y<LY; y++){
 	    
 	  w = Complex(1.0,0.0);
 	    
 	  //Move in +x up to p1.
-	  for(int dx=0; dx<Xrect; dx++)    w *= smeared[ (x+dx)%LX ][y][0];
+	  for(dx=0; dx<Xrect; dx++)     w *= gauge[ (x+dx)%LX ][y][0];
 	    
 	  //Move in +y up to p2 (p1 constant)
 	  p1 = (x + Xrect)%LX;
-	  for(int dy=0; dy<Yrect; dy++)    w *= smeared[p1][ (y+dy)%LY ][1];
+	  for(dy=0; dy<Yrect; dy++)     w *= gauge[p1][ (y+dy)%LY ][1];
 	    
 	  //Move in -x from p1 to (p2 constant)
 	  p2 = (y + Yrect)%LY;
-	  for(int dx=Xrect-1; dx>=0; dx--)  w *= conj(smeared[ (x+dx)%LX ][p2][0]);
-	    
+	  for(dx=Xrect-1; dx>=0; dx--)  w *= conj(gauge[ (x+dx)%LX ][p2][0]);
+	  
 	  //Move in -y from p2 to y
-	  for(int dy=Yrect-1; dy>=0; dy--)  w *= conj(smeared[x][ (y+dy)%LY ][1]);
+	  for(dy=Yrect-1; dy>=0; dy--)  w *= conj(gauge[x][ (y+dy)%LY ][1]);
 	  wLoops[Xrect][Yrect] += w*inv_Lsq;
 	}
     }
@@ -198,21 +196,24 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   Complex source[LX][LY][2];
   Complex Dsource[LX][LY][2];
 
+  //Deflate if requested
+#ifdef USE_ARPACK
+  arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
+#endif
+  
   //Up type source
   zeroField(source);
   zeroField(Dsource);
   zeroField(propUp);
   zeroField(propGuess);
   source[0][0][0] = cUnit;
-  // up -> (g5Dg5) * up
-  g5psi(source);
+  // up -> (g5Dg5) * up *****
+  // up -> (g5D)   * up ***** current
+  //g5psi(source);
   g5Dpsi(Dsource, source, gauge, p);
-
-#ifdef USE_ARPACK
-  arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
-#endif
-
-  // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up
+  
+  // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up ***** 
+  // (g5Dg5D)^-1 * (g5D) up = D^-1 * g5up ***** current 
   if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
   Ainvpsi(propUp, Dsource, propGuess, gauge, p);
 
@@ -222,12 +223,14 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   zeroField(propDn);
   source[0][0][1] = cUnit;	    
       
-  // dn -> (g5Dg5) * dn
-  g5psi(source);
+  // dn -> (g5Dg5) * dn *****
+  // dn -> (g5D  ) * dn ***** current
+  //g5psi(source);
   g5Dpsi(Dsource, source, gauge, p);
 
   if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-  // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn
+  // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn ***** 
+  // (g5Dg5D)^-1 * (g5D) dn = D^-1 * g5dn ***** current
   Ainvpsi(propDn, Dsource, propGuess, gauge, p);
       
   //Let y be the 'time' dimension
@@ -236,16 +239,21 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
     //initialise
     pion_corr[y] = 0.0;
     //Loop over space and spin, fold propagator
+    corr = 0.0;
     for(int x=0; x<LX; x++)
-      corr = (conj(propDn[x][y][0]) * propDn[x][y][0] +
-	      conj(propDn[x][y][1]) * propDn[x][y][1] +
-	      conj(propUp[x][y][0]) * propUp[x][y][0] +
-	      conj(propUp[x][y][1]) * propUp[x][y][1]).real();
-	
+      corr += abs((conj(propDn[x][y][0]) * propDn[x][y][0] +
+		   conj(propDn[x][y][1]) * propDn[x][y][1] +
+		   conj(propUp[x][y][0]) * propUp[x][y][0] +
+		   conj(propUp[x][y][1]) * propUp[x][y][1]));
+    
+    //Compute folded propagator
     if ( y < ((LY/2)+1) ) pion_corr[y] += corr;
-    else pion_corr[LY-y] += corr;	    
+    else {
+      pion_corr[LY-y] += corr;
+      pion_corr[LY-y] /= 2.0;
+    }
   }
-      
+  
       
   //pion Correlation
   string name = "data/pion/pion_Q" + std::to_string(abs(top));
@@ -256,7 +264,7 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   sprintf(fname, "%s", name.c_str());
   FILE *fp = fopen(fname, "a");
   fprintf(fp, "%d ", iter+1);
-  for(int t=0; t<LY/2; t++)
+  for(int t=0; t<LY/2+1; t++)
     fprintf(fp, "%.16e ", pion_corr[t]);
   fprintf(fp, "\n");
   fclose(fp);
@@ -288,7 +296,7 @@ void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
   zeroField(propUp);
   for(int x=0; x<LX; x++) {
     for(int y=0; y<LY; y++) {
-      source[x][1][0] = cUnit;
+      source[x][y][0] = cUnit;
       
       g5psi(source);
       g5Dpsi(Dsource, source, gauge, p);

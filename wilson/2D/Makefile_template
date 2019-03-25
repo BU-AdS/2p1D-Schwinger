@@ -1,7 +1,7 @@
 #Your path to...
 ARPACK=/usr/local/Cellar/arpack/3.6.2
 ARPACK_LIB= -L${ARPACK}/lib/ -larpack
-ARPACK_FLAGS= -DUSE_ARPACK
+#ARPACK_FLAGS= -DUSE_ARPACK
 #============================================================
 
 TARGET  = 2D-Wilson-LX__LX__-LY__LY__

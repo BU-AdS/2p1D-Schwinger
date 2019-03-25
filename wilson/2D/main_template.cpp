@@ -10,7 +10,7 @@ using namespace std;
 #define LX __LX__
 #define LY __LY__
 #define D 2
-#define NEV 2
+#define NEV 24
 #define NKR 32
 #define PI 3.141592653589793
 #define TWO_PI 6.283185307179586
@@ -77,7 +77,6 @@ int main(int argc, char **argv) {
     p.dynamic = true;
 
   p.m = atof(argv[13]);
-  
   p.maxIterCG = atoi(argv[14]);
   p.eps = atof(argv[15]);
   
@@ -90,6 +89,19 @@ int main(int argc, char **argv) {
   p.amax = atof(argv[19]);
   p.amin = atof(argv[20]);
   p.n_poly = atoi(argv[21]);
+
+  //Measurements
+  if(atoi(argv[22]) == 0) p.measPL = false;
+  else p.measPL = true;
+
+  if(atoi(argv[23]) == 0) p.measWL = false;
+  else p.measWL = true;
+  
+  if(atoi(argv[24]) == 0) p.measPC = false;
+  else p.measPC = true;
+  
+  if(atoi(argv[25]) == 0) p.measVT = false;
+  else p.measVT = true;  
   
   //Topology
   double top = 0.0;
@@ -246,16 +258,16 @@ int main(int argc, char **argv) {
       //Physical observables
       //-------------------------------------------------------------      
       //Polyakov Loops      
-      measPolyakovLoops(gauge, iter, p);
+      if(p.measPL) measPolyakovLoops(gauge, iter, p);
       
       //Creutz Ratios
-      measWilsonLoops(gauge, plaq, iter, p);
+      if(p.measWL) measWilsonLoops(gauge, plaq, iter, p);
 
       //Pion Correlation
-      measPionCorrelation(gauge, top_old, iter, p);
+      if(p.measPC) measPionCorrelation(gauge, top_old, iter, p);
 
       //Vacuum Trace
-      measVacuumTrace(gauge, top_old, iter, p);
+      if(p.measVT) measVacuumTrace(gauge, top_old, iter, p);
       //-------------------------------------------------------------
     }
   }
