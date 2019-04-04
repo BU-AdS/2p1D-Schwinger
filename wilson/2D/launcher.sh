@@ -5,12 +5,13 @@
 # to make writing new code simpler. Please please edit and remake
 # if you wish to vary L.
 
-mkdir -p {data/{rect,polyakov,data,creutz,top,pion},gauge}
+rm -rf {gauge,data}
+mkdir -p {gauge,data/{data,plaq,creutz,polyakov,rect,top,pion,vacuum}}
 
 # configure preamble
 #---------------------------------------------------------------
-LX=16
-LY=16
+LX=32
+LY=32
 # Construct the correct executable
 cp main_template.cpp main.cpp
 cp Makefile_template Makefile
@@ -26,9 +27,9 @@ make
 BETA=$1
 
 # The total number of HMC iterations to perform.
-HMC_ITER=100
+HMC_ITER=10000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=20
+HMC_THERM=100
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -36,7 +37,7 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # HMC time steps in the integration 
-HMC_NSTEP=10
+HMC_NSTEP=50
 # HMC trajectory time
 HMC_TAU=1.0
 
@@ -56,11 +57,11 @@ ZLOCKED=1
 
 # Dynamic fermion parameters
 # Fermion mass
-MASS=-0.05
+MASS=0.1
 # Maximum CG iterations
 MAX_CG_ITER=1000
 # CG tolerance
-CG_EPS=1e-8
+CG_EPS=1e-16
 
 # Eigensolver parameters
 # Tolerance on the residual
@@ -74,10 +75,20 @@ AMAX=11
 AMIN=1.0
 N_POLY=100
 
+# Measuremets: 1 = measure, 0 = no measure
+# Polyakov loops
+MEAS_PL=0
+# Wilson loops and Creutz ratios
+MEAS_WL=1
+# Pion Correlation function
+MEAS_PC=1
+# Vacuum trace
+MEAS_VT=0
 
-command="./2D-Wilson-LX$LX-LY$LY $BETA $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START 
-	      $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $MASS 
-	      $MAX_CG_ITER $CG_EPS $TOL $ARPACK_MAXITER $USE_ACC $AMAX $AMIN $N_POLY"
+command="./2D-Wilson-LX$LX-LY$LY $BETA $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT 
+         $HMC_CHKPT_START $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA $RNG_SEED 
+	 $DYN_QUENCH $MASS $MAX_CG_ITER $CG_EPS $TOL $ARPACK_MAXITER $USE_ACC $AMAX 
+    	 $AMIN $N_POLY $MEAS_PL $MEAS_WL $MEAS_PC $MEAS_VT"
 
 echo $command
 

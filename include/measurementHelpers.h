@@ -172,7 +172,7 @@ void measPolyakovLoops(Complex gauge[LX][LY][2], int iter, param_t p){
 //Pion correlation function
 //                              |----------------|
 //                              |        |-------|---------|
-//  < pi(x) | pi(0) > = < ReTr[up(x) g5 dn*(x) | up*(0) g5 dn(0)] >     
+//  < pi(x) | pi(0) > = < ReTr[up(x) g3 dn*(x) | up*(0) g3 dn(0)] >     
 //                    = < ReTr(G[x,0] G*[x,0]) >
 //
 // if H = Hdag, Tr(H * Hdag) = Sum_{n,m} (H_{n,m}) * (H_{n,m})^*,
@@ -207,13 +207,17 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   zeroField(propUp);
   zeroField(propGuess);
   source[0][0][0] = cUnit;
-  // up -> (g5Dg5) * up *****
-  // up -> (g5D)   * up ***** current
-  //g5psi(source);
-  g5Dpsi(Dsource, source, gauge, p);
   
-  // (g5Dg5D)^-1 * (g5Dg5) up = D^-1 * up ***** 
-  // (g5Dg5D)^-1 * (g5D) up = D^-1 * g5up ***** current 
+  // up -> (g3Dg3) * up *****
+  // (g3Dg3D)^-1 * (g3Dg3) up = D^-1 * up *****
+  // or
+  // up -> (g3D)   * up ***** 
+  // (g3Dg3D)^-1 * (g3D) up = D^-1 * g3up ***** current
+  
+  //g3psi(source);
+  g3Dpsi(Dsource, source, gauge, p);
+  
+
   if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
   Ainvpsi(propUp, Dsource, propGuess, gauge, p);
 
@@ -221,16 +225,19 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   zeroField(source);
   zeroField(Dsource);
   zeroField(propDn);
+  zeroField(propGuess);
   source[0][0][1] = cUnit;	    
       
-  // dn -> (g5Dg5) * dn *****
-  // dn -> (g5D  ) * dn ***** current
-  //g5psi(source);
-  g5Dpsi(Dsource, source, gauge, p);
+  // dn -> (g3Dg3) * dn *****
+  // (g3Dg3D)^-1 * (g3Dg3) dn = D^-1 * dn *****
+  // or
+  // dn -> (g3D  ) * dn *****
+  // (g3Dg3D)^-1 * (g3D) dn = D^-1 * g3dn ***** current
+  //g3psi(source);
+  g3Dpsi(Dsource, source, gauge, p);
 
   if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-  // (g5Dg5D)^-1 * (g5Dg5) dn = D^-1 * dn ***** 
-  // (g5Dg5D)^-1 * (g5D) dn = D^-1 * g5dn ***** current
+
   Ainvpsi(propDn, Dsource, propGuess, gauge, p);
       
   //Let y be the 'time' dimension
@@ -298,8 +305,8 @@ void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
     for(int y=0; y<LY; y++) {
       source[x][y][0] = cUnit;
       
-      g5psi(source);
-      g5Dpsi(Dsource, source, gauge, p);
+      g3psi(source);
+      g3Dpsi(Dsource, source, gauge, p);
       if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
       Ainvpsi(propUp, Dsource, propGuess, gauge, p);
       
@@ -309,8 +316,8 @@ void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
       zeroField(propDn);
       source[x][y][1] = cUnit;
       
-      g5psi(source);
-      g5Dpsi(Dsource, source, gauge, p);
+      g3psi(source);
+      g3Dpsi(Dsource, source, gauge, p);
       if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
       Ainvpsi(propDn, Dsource, propGuess, gauge, p);
       

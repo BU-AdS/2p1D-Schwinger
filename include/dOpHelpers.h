@@ -5,6 +5,7 @@
 // D_{W}(n,m) = (m_{0} + 2r)\delta(n,m)
 //               - 1/2 Sum [(r-\sigma_{mu}) U_{n,\mu} \delta_{n,m-\hat{\mu}} +
 //                          (r+\sigma_{mu}) U^{\dagger}_{m,\mu} \delta_{n,m+\hat{\mu}}]
+//
 // sigma_1 = | 0  1 |  sigma_2 = | 0 -i | sigma_3 = i*sigma_1*sigma_2 = | 1  0 |
 //           | 1  0 |            | i  0 |                               | 0 -1 |
 
@@ -52,7 +53,7 @@ void Ddagpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
   
 }
 
-void g5psi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2]){
+void g3psi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2]){
   
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++) {
@@ -61,7 +62,7 @@ void g5psi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2]){
     }
 }
 
-void g5psi(Complex psi1[LX][LY][2]){
+void g3psi(Complex psi1[LX][LY][2]){
   
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++) {
@@ -70,11 +71,11 @@ void g5psi(Complex psi1[LX][LY][2]){
 }
 
 
-void g5Dpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
+void g3Dpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
 	    const Complex gauge[LX][LY][2], param_t p ){
 
   Dpsi(psi2, psi1, gauge, p);
-  g5psi(psi2);
+  g3psi(psi2);
 }
 
 void DdagDpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
@@ -83,9 +84,9 @@ void DdagDpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
   //Hack for now
   Complex temp[LX][LY][2];
   Dpsi(temp, psi1, gauge, p);
-  g5psi(temp);
+  g3psi(temp);
   Dpsi(psi2, temp, gauge, p);
-  g5psi(psi2);
+  g3psi(psi2);
 }
 
 void deflate(Complex guess_defl[LX][LY][2], Complex guess[LX][LY][2],

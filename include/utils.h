@@ -8,6 +8,7 @@
 #include <cmath>
 #include <complex>
 #include "latHelpers.h"
+#include "fermionHelpers.h"
 
 using namespace std;
 
@@ -226,21 +227,23 @@ void gaussReal_F(double field[LX][LY]) {
 void gaussComplex_F(Complex eta[LX][LY][2], param_t p) {
   
   //normalized gaussian exp[ - eta*eta/2]  <eta|eta> = 1;
-  double r1, theta1, r2, theta2;
+  double r1, theta1, r2, theta2, sum;
   double inv_sqrt2 = 1.0/sqrt(2);
   
-  for(int x=0; x<LX; x++)
+  for(int x=0; x<LX; x++) {
     for(int y=0; y<LY; y++) {
       for(int s=0; s<2; s++) {
 	r1 = sqrt(-2.0*log(drand48()));
 	theta1 = TWO_PI*(drand48());
-	r1 = sqrt(-2.0*log(drand48()));
-	theta1 = TWO_PI*(drand48());
+	r2 = sqrt(-2.0*log(drand48()));
+	theta2 = TWO_PI*(drand48());
 	
 	eta[x][y][s] = Complex(r1*cos(theta1),r2*sin(theta2))*inv_sqrt2;
       }
-      return;
     }
+  }
+  //cout << "GaussComplex_F: norm(eta) = " << norm2(eta)/(LX*LY*2) << endl;
+  return;
 }
 
 void gaussComplex_F(Complex eta[LX][LY], param_t p) {
@@ -249,15 +252,17 @@ void gaussComplex_F(Complex eta[LX][LY], param_t p) {
   double r1, theta1, r2, theta2;
   double inv_sqrt2 = 1.0/sqrt(2);
   
-  for(int x=0; x<LX; x++)
+  for(int x=0; x<LX; x++) {
     for(int y=0; y<LY; y++) {
       r1 = sqrt(-2.0*log(drand48()));
       theta1 = TWO_PI*(drand48());
-      r1 = sqrt(-2.0*log(drand48()));
-      theta1 = TWO_PI*(drand48());
+      r2 = sqrt(-2.0*log(drand48()));
+      theta2 = TWO_PI*(drand48());
       
       eta[x][y] = Complex(r1*cos(theta1),r2*sin(theta2))*inv_sqrt2;
     }
+  }
+  //cout << "GaussComplex_F: norm(eta) = " << norm2(eta)/(LX*LY) << endl;
   return;
   
 }

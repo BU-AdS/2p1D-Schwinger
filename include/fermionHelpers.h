@@ -120,8 +120,12 @@ template<typename T> inline void ax(double a, T X[LX][LY][2]){
 	X[x][y][s] *= a;
 }
 
-
-
+template<typename T> inline void printVector(T X[LX][LY][2]){
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++)
+      cout << "(" << x << "," << y << ") = " << X[x][y][0] << " " << X[x][y][1]<<endl; 
+}
+    
 //Staggered Fermion Utilities
 //---------------------------------------------------------------------------------
 // Zero fermion field

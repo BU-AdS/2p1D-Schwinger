@@ -120,8 +120,8 @@ int main(int argc, char **argv) {
   Complex gaugeFree[LX][LY][D];
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++) {
-      gaugeFree[LX][LY][0] = cUnit;
-      gaugeFree[LX][LY][1] = cUnit;
+      gaugeFree[x][y][0] = cUnit;
+      gaugeFree[x][y][1] = cUnit;
     }
     
   int count = 0;
@@ -301,9 +301,9 @@ int hmc(Complex gauge[LX][LY][D], param_t p, int iter) {
     //Create gaussian distributed fermion field chi. chi[LX][LY] E exp(-chi^* chi)
     gaussComplex_F(chi, p);
     //Create pseudo fermion field phi = D chi
-    g5Dpsi(phi, chi, gauge, p);    
+    g3Dpsi(phi, chi, gauge, p);    
   }
-  
+
   if (iter >= p.therm) Hold = measAction(mom, gauge, chi, p, false);
   trajectory(mom, gauge, phi, p, iter);
   if (iter >= p.therm) H = measAction(mom, gauge, phi, p, true);
@@ -425,16 +425,16 @@ void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][
     Complex phip[LX][LY][2];
     zeroField(phip);
     
-    //Ainvpsi inverts using the DdagD (g5Dg5D) operator, returns
-    // phip = (D^-1 * Ddag^-1) phi = (D^-1 * g5 * D^-1 g5) phi.
+    //Ainvpsi inverts using the DdagD (g3Dg3D) operator, returns
+    // phip = (D^-1 * Ddag^-1) phi = (D^-1 * g3 * D^-1 g3) phi.
     Complex guess[LX][LY][2]; //Initial guess to CG
     zeroField(guess);
     Ainvpsi(phip, phi, guess, gauge, p);
     
-    //g5Dphi = g5D * phip
-    Complex g5Dphi[LX][LY][2];
-    zeroField(g5Dphi);
-    g5Dpsi(g5Dphi, phip, gauge, p);
+    //g3Dphi = g3D * phip
+    Complex g3Dphi[LX][LY][2];
+    zeroField(g3Dphi);
+    g3Dpsi(g3Dphi, phip, gauge, p);
     
     int xp1, xm1, yp1, ym1;
     double r = 1.0;
@@ -454,12 +454,12 @@ void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][
 	// | r -1 |
 	// | 1 -r |					
 	fD[x][y][0] += real(I*((conj(gauge[x][y][0]) *
-				(conj(phip[xp1][y][0]) * (r*g5Dphi[x][y][0] +   g5Dphi[x][y][1]) -
-				 conj(phip[xp1][y][1]) * (  g5Dphi[x][y][0] + r*g5Dphi[x][y][1])))
+				(conj(phip[xp1][y][0]) * (r*g3Dphi[x][y][0] +   g3Dphi[x][y][1]) -
+				 conj(phip[xp1][y][1]) * (  g3Dphi[x][y][0] + r*g3Dphi[x][y][1])))
 			       -
 			       (gauge[x][y][0] *
-				(conj(phip[x][y][0]) * (r*g5Dphi[xp1][y][0] -   g5Dphi[xp1][y][1]) +
-				 conj(phip[x][y][1]) * (  g5Dphi[xp1][y][0] - r*g5Dphi[xp1][y][1])))
+				(conj(phip[x][y][0]) * (r*g3Dphi[xp1][y][0] -   g3Dphi[xp1][y][1]) +
+				 conj(phip[x][y][1]) * (  g3Dphi[xp1][y][0] - r*g3Dphi[xp1][y][1])))
 			       )
 			    );	
 	
@@ -471,12 +471,12 @@ void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][
 	// | r  i |
 	// | i -r |
 	fD[x][y][1] += real(I*((conj(gauge[x][y][1]) *
-				(conj(phip[x][yp1][0]) * (r*g5Dphi[x][y][0] - I*g5Dphi[x][y][1]) -
-				 conj(phip[x][yp1][1]) * (I*g5Dphi[x][y][0] + r*g5Dphi[x][y][1])))
+				(conj(phip[x][yp1][0]) * (r*g3Dphi[x][y][0] - I*g3Dphi[x][y][1]) -
+				 conj(phip[x][yp1][1]) * (I*g3Dphi[x][y][0] + r*g3Dphi[x][y][1])))
 			       -			       
 			       (gauge[x][y][1] *
-				(conj(phip[x][y][0]) * (r*g5Dphi[x][yp1][0] + I*g5Dphi[x][yp1][1]) +
-				 conj(phip[x][y][1]) * (I*g5Dphi[x][yp1][0] - r*g5Dphi[x][yp1][1])))
+				(conj(phip[x][y][0]) * (r*g3Dphi[x][yp1][0] + I*g3Dphi[x][yp1][1]) +
+				 conj(phip[x][y][1]) * (I*g3Dphi[x][yp1][0] - r*g3Dphi[x][yp1][1])))
 			       )
 			    );	
       }
