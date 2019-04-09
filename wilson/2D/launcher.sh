@@ -29,7 +29,7 @@ BETA=$1
 # The total number of HMC iterations to perform.
 HMC_ITER=10000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=100
+HMC_THERM=50
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -37,7 +37,7 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # HMC time steps in the integration 
-HMC_NSTEP=50
+HMC_NSTEP=25
 # HMC trajectory time
 HMC_TAU=1.0
 
@@ -79,7 +79,7 @@ N_POLY=100
 # Polyakov loops
 MEAS_PL=0
 # Wilson loops and Creutz ratios
-MEAS_WL=1
+MEAS_WL=0
 # Pion Correlation function
 MEAS_PC=1
 # Vacuum trace

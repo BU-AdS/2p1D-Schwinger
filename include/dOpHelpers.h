@@ -70,6 +70,47 @@ void g3psi(Complex psi1[LX][LY][2]){
     }
 }
 
+void g2psi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2]){
+  
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++) {
+      psi2[x][y][0] = -I*psi1[x][y][1];
+      psi2[x][y][1] =  I*psi1[x][y][0];
+    }
+}
+
+void g2psi(Complex psi1[LX][LY][2]){
+
+  Complex tmp = 0.0;
+  for(int x=0; x<LX; x++)    
+    for(int y=0; y<LY; y++) {
+      tmp = psi1[x][y][1];      
+      psi1[x][y][1] =  I*psi1[x][y][0];
+      psi1[x][y][0] = -I*tmp;
+    }
+}
+
+
+void g1psi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2]){
+  
+  for(int x=0; x<LX; x++)
+    for(int y=0; y<LY; y++) {
+      psi2[x][y][0] = psi1[x][y][1];
+      psi2[x][y][1] = psi1[x][y][0];
+    }
+}
+
+void g1psi(Complex psi1[LX][LY][2]){
+
+  Complex tmp = 0.0;
+  for(int x=0; x<LX; x++)    
+    for(int y=0; y<LY; y++) {
+      tmp = psi1[x][y][1];      
+      psi1[x][y][1] = psi1[x][y][0];
+      psi1[x][y][0] = tmp;
+    }
+}
+
 
 void g3Dpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
 	    const Complex gauge[LX][LY][2], param_t p ){

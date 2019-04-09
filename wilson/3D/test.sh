@@ -10,7 +10,7 @@ mkdir -p {gauge,logs,data/{data,plaq,creutz,polyakov,rect,top,pion}}
 # configure preamble
 #---------------------------------------------------------------
 LX=16
-LY=32
+LY=16
 LZ=5
 # Construct the correct executable
 cp main_template.cpp main.cpp

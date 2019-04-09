@@ -172,8 +172,11 @@ void measPolyakovLoops(Complex gauge[LX][LY][2], int iter, param_t p){
 //Pion correlation function
 //                              |----------------|
 //                              |        |-------|---------|
-//  < pi(x) | pi(0) > = < ReTr[up(x) g3 dn*(x) | up*(0) g3 dn(0)] >     
-//                    = < ReTr(G[x,0] G*[x,0]) >
+//  < pi(x) | pi(0) > = < ReTr[dn*(x) g3 up(x) | dn(0) g3 up*(0)] >     
+//                    = < ReTr(g3 Gd[0,x] g3 Gu[x,0]) >  
+//                    = < ReTr(G*[x,0] G[x,0]) >
+//
+// using g3 G[x,0] g3 = G*[x,0] and Gu[x,0] \eq Gd[x,0]
 //
 // if H = Hdag, Tr(H * Hdag) = Sum_{n,m} (H_{n,m}) * (H_{n,m})^*,
 // i.e., the sum of the modulus squared of each element
@@ -196,6 +199,10 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   Complex source[LX][LY][2];
   Complex Dsource[LX][LY][2];
 
+  char fname[256];
+  string name;
+  FILE *fp;
+  
   //Deflate if requested
 #ifdef USE_ARPACK
   arpack_solve(gauge, defl_evecs, defl_evals, 0, 0, p);
@@ -210,13 +217,9 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   
   // up -> (g3Dg3) * up *****
   // (g3Dg3D)^-1 * (g3Dg3) up = D^-1 * up *****
-  // or
-  // up -> (g3D)   * up ***** 
-  // (g3Dg3D)^-1 * (g3D) up = D^-1 * g3up ***** current
-  
-  //g3psi(source);
-  g3Dpsi(Dsource, source, gauge, p);
-  
+
+  g3psi(source);
+  g3Dpsi(Dsource, source, gauge, p);  
 
   if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
   Ainvpsi(propUp, Dsource, propGuess, gauge, p);
@@ -229,29 +232,51 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
   source[0][0][1] = cUnit;	    
       
   // dn -> (g3Dg3) * dn *****
-  // (g3Dg3D)^-1 * (g3Dg3) dn = D^-1 * dn *****
-  // or
-  // dn -> (g3D  ) * dn *****
-  // (g3Dg3D)^-1 * (g3D) dn = D^-1 * g3dn ***** current
-  //g3psi(source);
+  // (g3Dg3D)^-1 * (g3Dg3) dn = D^-1 * dn ***** 
+
+  g3psi(source);
   g3Dpsi(Dsource, source, gauge, p);
 
   if (p.deflate) deflate(propGuess, Dsource, defl_evecs, defl_evals, p);
-
   Ainvpsi(propDn, Dsource, propGuess, gauge, p);
-      
+
+  //Get estimate of vacuum trace
+  Complex q[2] = {0.0,0.0};
+  q[0] = propUp[0][0][0];
+  q[1] = propDn[0][0][1];
+
+  double vacuum_trace = (q[0] - q[1]).real();
+  
+  name = "data/vacuum/estimate_vacuum_Q" + std::to_string(abs(top));
+  constructName(name, p);
+  name += ".dat";
+  sprintf(fname, "%s", name.c_str());
+  fp = fopen(fname, "a");
+  fprintf(fp, "%d ", iter+1);
+  fprintf(fp, "%.16e\n", vacuum_trace);
+  fclose(fp);
+  
   //Let y be the 'time' dimension
-  double corr = 0.0;
+  double corr = 0.0, tmp = 0.0;
   for(int y=0; y<LY; y++) {
     //initialise
     pion_corr[y] = 0.0;
     //Loop over space and spin, fold propagator
     corr = 0.0;
-    for(int x=0; x<LX; x++)
-      corr += abs((conj(propDn[x][y][0]) * propDn[x][y][0] +
-		   conj(propDn[x][y][1]) * propDn[x][y][1] +
-		   conj(propUp[x][y][0]) * propUp[x][y][0] +
-		   conj(propUp[x][y][1]) * propUp[x][y][1]));
+    for(int x=0; x<LX; x++) {
+      tmp = abs((conj(propDn[x][y][0]) * propDn[x][y][0] +
+      		 conj(propDn[x][y][1]) * propDn[x][y][1] +
+      		 conj(propUp[x][y][0]) * propUp[x][y][0] +
+      		 conj(propUp[x][y][1]) * propUp[x][y][1]));
+
+      /* tmp = (propDn[x][y][0].real() * propDn[x][y][0].real() + propDn[x][y][0].imag() * propDn[x][y][0].imag() + */
+      /* 	     propDn[x][y][1].real() * propDn[x][y][1].real() + propDn[x][y][1].imag() * propDn[x][y][1].imag() + */
+      /* 	     propUp[x][y][0].real() * propUp[x][y][0].real() + propUp[x][y][0].imag() * propUp[x][y][0].imag() + */
+      /* 	     propUp[x][y][1].real() * propUp[x][y][1].real() + propUp[x][y][1].imag() * propUp[x][y][1].imag()); */
+      
+      
+      corr += tmp;
+    }
     
     //Compute folded propagator
     if ( y < ((LY/2)+1) ) pion_corr[y] += corr;
@@ -261,15 +286,24 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
     }
   }
   
-      
-  //pion Correlation
-  string name = "data/pion/pion_Q" + std::to_string(abs(top));
+  //topological sector pion correlation
+  name = "data/pion/pion_Q" + std::to_string(abs(top));
   constructName(name, p);
-  name += ".dat";
-  
-  char fname[256];
+  name += ".dat";  
   sprintf(fname, "%s", name.c_str());
-  FILE *fp = fopen(fname, "a");
+  fp = fopen(fname, "a");
+  fprintf(fp, "%d ", iter+1);
+  for(int t=0; t<LY/2+1; t++)
+    fprintf(fp, "%.16e ", pion_corr[t]);
+  fprintf(fp, "\n");
+  fclose(fp);
+
+  //Full pion correlation
+  name = "data/pion/pion";
+  constructName(name, p);
+  name += ".dat";  
+  sprintf(fname, "%s", name.c_str());
+  fp = fopen(fname, "a");
   fprintf(fp, "%d ", iter+1);
   for(int t=0; t<LY/2+1; t++)
     fprintf(fp, "%.16e ", pion_corr[t]);
@@ -279,7 +313,7 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
 }
 
 void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
-
+  
   //Up type fermion prop
   Complex propUp[LX][LY][2];
   //Down type fermion prop
@@ -290,19 +324,23 @@ void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
   Complex defl_evecs[NEV][LX][LY][2];
   //Deflation eigenvalues
   Complex defl_evals[NEV];
-      
+  
   double vacuum_trace[2] = {0.0, 0.0};
-
+  
   Complex source[LX][LY][2];
   Complex Dsource[LX][LY][2];
   
   //Disconnected
-  //Up type source
-  zeroField(source);
-  zeroField(Dsource);
-  zeroField(propUp);
-  for(int x=0; x<LX; x++) {
-    for(int y=0; y<LY; y++) {
+  //Loop over time slices
+  for(int y=0; y<LY; y++) {
+    
+    //Sum over spatial sites
+    for(int x=0; x<LX; x++) {
+      
+      //Up type source
+      zeroField(source);
+      zeroField(Dsource);
+      zeroField(propUp);
       source[x][y][0] = cUnit;
       
       g3psi(source);
@@ -331,7 +369,7 @@ void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
 			  conj(propUp[x][y][0]) * propUp[x][y][0] +
 			  conj(propUp[x][y][1]) * propUp[x][y][1]).imag();
       
-    }
+    }    
   }
 
   string name = "data/vacuum/vacuum_Q" + std::to_string(abs(top));

@@ -33,7 +33,7 @@ typedef struct{
   double m = -0.06;
   bool dynamic = true;
   bool lockedZ = false;
-  bool deflate = false;
+  bool deflate = true;
   
   //Smearing
   double alpha = 0.5;
