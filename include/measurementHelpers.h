@@ -408,7 +408,6 @@ double measGaugeAction(Complex gauge[LX][LY][2], param_t p) {
   double beta  = p.beta;
   double Hgauge = 0.0;
   Complex plaq = 0.0;
-
   
   for(int x=0; x<LX;x++)
     for(int y=0; y<LY; y++){      
