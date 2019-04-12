@@ -152,9 +152,6 @@ void deflate(Complex guess_defl[LX][LY][2], Complex guess[LX][LY][2],
 
 
 
-
-
-
 /*
   For a 2D square lattice, the stencil is:
 
@@ -239,6 +236,7 @@ void DdagDpsi(Complex psi2[LX][LY], Complex  psi1[LX][LY],
   Dpsi(psitmp, psi1, gauge, p);
   Ddagpsi(psi2, psitmp, gauge, p);
 }
+
 
 
 #endif

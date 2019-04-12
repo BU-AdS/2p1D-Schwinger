@@ -5,7 +5,24 @@
 # to make writing new code simpler. Please please edit and remake
 # if you wish to vary L.
 
-mkdir -p {gauge,logs,data/{data,plaq,creutz,polyakov,rect,top}}
+rm -rf {gauge,data}
+mkdir -p {gauge,data/{data,plaq,creutz,polyakov,rect,top,pion,vacuum}}
+
+# configure preamble
+#---------------------------------------------------------------
+LX=16
+LY=16
+LZ=3
+# Construct the correct executable
+cp main_template.cpp main.cpp
+cp Makefile_template Makefile
+sed -i '.bak' -e s/__LX__/${LX}/g main.cpp Makefile
+sed -i '.bak' -e s/__LY__/${LY}/g main.cpp Makefile
+sed -i '.bak' -e s/__LZ__/${LZ}/g main.cpp Makefile
+
+rm *.bak
+make
+#---------------------------------------------------------------
 
 # The value of the coupling in the U(1) 2D theory
 BETA=$1
@@ -14,11 +31,11 @@ BETA=$1
 BETAZ=$2
 
 # The total number of HMC iterations to perform.
-HMC_ITER=20000
+HMC_ITER=100
 # The number of HMC iterations for thermalisation.
 HMC_THERM=50
 # The number of HMC iterations to skip bewteen measurements.
-HMC_SKIP=10
+HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
 HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
@@ -44,19 +61,15 @@ ZLOCKED=1
 
 # Dynamic fermion parameters 
 # Fermion mass
-MASS=-0.06
+MASS=0.2
 # Maximum CG iterations
 MAX_CG_ITER=1000
 # CG tolerance
-CG_EPS=1e-6
+CG_EPS=1e-16
 
 # Eigensolver parameters
-# Krylov space size
-NKV=128
-# Requested converged eigenpairs
-NEV=100
 # Tolerance on the residual
-TOL=1e-12
+TOL=1e-8
 # Maximum ARPACK iterations
 ARPACK_MAXITER=100000
 
@@ -66,11 +79,22 @@ AMAX=11
 AMIN=1.0
 N_POLY=100
 
+# Measuremets: 1 = measure, 0 = no measure
+# Polyakov loops
+MEAS_PL=0
+# Wilson loops and Creutz ratios
+MEAS_WL=0
+# Pion Correlation function
+MEAS_PC=1
+# Vacuum trace
+MEAS_VT=0
 
-command="./u1 $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP $HMC_CHKPT $HMC_CHKPT_START \
-	      $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA $RNG_SEED $DYN_QUENCH $ZLOCKED \
-	      $MASS $MAX_CG_ITER $CG_EPS $NKV $NEV $TOL $ARPACK_MAXITER $USE_ACC \
-	      $AMAX $AMIN $N_POLY"
+
+command="./2p1D-Staggered-LX$LX-LY$LY-LZ$LZ $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP 
+	      $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA 
+	      $RNG_SEED $DYN_QUENCH $ZLOCKED $MASS $MAX_CG_ITER $CG_EPS $TOL 
+	      $ARPACK_MAXITER $USE_ACC $AMAX $AMIN $N_POLY $MEAS_PL $MEAS_WL $MEAS_PC 
+	      $MEAS_VT"
 
 echo $command
 

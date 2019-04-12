@@ -31,13 +31,13 @@ typedef complex<double> Complex;
 #include "inverters.h"
 
 #ifdef USE_ARPACK
-#include "arpack_interface_wilson.h"
+#include "arpack_interface_staggered.h"
 #endif
 
 ////Dimension dependent HMC functions defined in main file
 //----------------------------------------------------------------------------
 void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
-		Complex phi[LX][LY][2], param_t p);
+		Complex phi[LX][LY], param_t p);
 int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter);
 void forceU(double fU[LX][LY][LZ][D], const Complex gauge[LX][LY][LZ][D], param_t p);
 void update_mom(double fU[LX][LY][LZ][D], double fD[LX][LY][2],
@@ -302,7 +302,7 @@ int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter) {
   double mom2D[LX][LY][2];
   Complex gaugeOld[LX][LY][LZ][D];
   Complex gauge2D[LX][LY][2];
-  Complex phi[LX][LY][2], chi[LX][LY][2];
+  Complex phi[LX][LY], chi[LX][LY];
   double H, Hold;
   
   copyLat(gaugeOld, gauge);
@@ -320,7 +320,11 @@ int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter) {
     gaussComplex_F(chi, p);
     //Create pseudo fermion field, phi = D * chi
     extractLatSlice(gauge, gauge2D, (LZ-1)/2);
-    g3Dpsi(phi, chi, gauge2D, p);    
+    Dpsi(phi, chi, gauge2D, p);
+    
+    for(int x=0; x<LX; x++)  //Masks out odd sites.
+      for(int y=0; y<LY; y++)
+        if((x+y)%2 == 1) phi[x][y] = 0.0;
   }
   
   if (iter >= p.therm) Hold = measAction(mom, gauge, phi, p, false);    
@@ -343,11 +347,11 @@ int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter) {
 }
 
 void trajectory(double mom[LX][LY][LZ][D], Complex gauge[LX][LY][LZ][D],
-		Complex phi[LX][LY][2], param_t p) {  
+		Complex phi[LX][LY], param_t p) {  
 
   double dtau = p.tau/p.nstep;
   double H = 0.0;
-  Complex guess[LX][LY][2];
+  Complex guess[LX][LY];
   Complex gauge2D[LX][LY][2];
   extractLatSlice(gauge, gauge2D, (LZ-1)/2);
 #ifdef USE_ARPACK

@@ -1,12 +1,12 @@
 #!/bin/bash
 
-BETA=1
+BETA=4
 
-mkdir -p {gauge,logs,data/{data,plaq,creutz,polyakov,rect,top}}
+mkdir logs
 
-while [ ${BETA} -le 8 ]; do
+while [ ${BETA} -le 4 ]; do
     
-    ./test.sh ${BETA}.0 >& logs/log_${BETA}.log &
+    ./launcher.sh ${BETA}.0 >& logs/log_${BETA}.log &
     
     let BETA=BETA+1
     

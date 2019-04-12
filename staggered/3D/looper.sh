@@ -1,13 +1,14 @@
 #!/bin/bash
 
-BETA=1
-BETA_Z=1.0
+BETA=3
+BETAZ=1
 
-mkdir -p beta_${BETA_Z}/{gauge,data/{data,plaq,creutz,polyakov,rect,top}}
+mkdir logs
 
-while [ ${BETA} -le 8 ]; do
+while [ ${BETA} -le 3 ]; do
     
-    ./test.sh ${BETA} ${BETA_Z} >& beta_${BETA_Z}/log_${BETA}_${BETA_Z}.log &
+    ./launcher.sh ${BETA}.0 ${BETAZ} >& logs/log_${BETA}_${BETAZ}.log &
+    #./launcher.sh ${BETA}.0 ${BETAZ} 
     
     let BETA=BETA+1
     
