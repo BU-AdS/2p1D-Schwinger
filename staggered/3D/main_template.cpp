@@ -29,6 +29,7 @@ typedef complex<double> Complex;
 #include "fermionHelpers.h"
 #include "dOpHelpers.h"
 #include "inverters.h"
+#include "hmcHelpers3D.h"
 
 #ifdef USE_ARPACK
 #include "arpack_interface_staggered.h"
