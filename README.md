@@ -1,10 +1,10 @@
 # (2+1)D-Schwinger Model
 
 C++ code for a 2D Schwinger Model, with the option to add a 3rd dimension
-for the gauge field with open boundary conditions. Fermions are restricted
-to the central slice.
+for the gauge field with open boundary conditions and unit valued links in
+the extra dimension. Fermions are restricted to the central slice.
 
-## Features and Usage
+## Features
 
 The code is 'built for comfort, not for speed'. No attempts have been made to
 optimise the code for performance. Each fermion action (and each instance in
@@ -14,7 +14,7 @@ optimise the code for performance. Each fermion action (and each instance in
 
 We use the Wilson gauge action throughout. At the present time, we offer
 
-   1. 2 flavour staggered
+   1. 2 flavour Staggered
    2. 2 flavour Wilson
 
 fermion actions.
@@ -42,22 +42,26 @@ At the preset time, only gauge measurements are implemented.
    2. Wilson loops (for Creutz ratios)
    3. Polyakov loops
    4. Topological charge
+   5. Vacuum trace
+   5. Pion correlation function
 
 ### Usage
 
-In each action directory we provide a `test.sh` file that gives an exhaustive
-list of inputs with description. Adjust the variables in the `test.sh` file
-then execute `./test.sh` to run the simulation with the given parameters.
+In each (Action/Dimension) directory we provide four files:
 
-## Building and Dependencies
+   Makefile_template
+   main_template.cpp
+   looper.sh
+   launcher.sh.
 
-The sole dependency is from ARPACK. We have tested against macOS Mojave and used
-`brew install arpack` to build ARPACK.
+We have deliberatly left some parameters of the code as preprocessor defines.
+This is so that any attempt to parallelise the code with, say OpenACC, will
+be easier. In order to constrcut an exectuable, one must edit the 'launcher.sh`
+file with the desired parameters. The 'launcher.sh` script will then construct
+a `Makefile`, a 'main.cpp' file, and an executable, and will then launch the job.
 
-When making a `main.cpp` file, specifiy ARPACK linking in the `Makefile` and adjust
-the path accordingly. Then type
+## Dependencies
 
-    make
-
-to build the `u1` executable.
-
+The sole dependency is from ARPACK and is entirely optional. We have tested
+against macOS Mojave and used `brew install arpack` to build ARPACK, and link
+accordingly.

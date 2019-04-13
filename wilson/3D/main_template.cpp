@@ -29,6 +29,7 @@ typedef complex<double> Complex;
 #include "fermionHelpers.h"
 #include "dOpHelpers.h"
 #include "inverters.h"
+#include "hmcHelpers.h"
 
 #ifdef USE_ARPACK
 #include "arpack_interface_wilson.h"
@@ -323,7 +324,7 @@ int hmc(Complex gauge[LX][LY][LZ][D], param_t p, int iter) {
     g3Dpsi(phi, chi, gauge2D, p);    
   }
   
-  if (iter >= p.therm) Hold = measAction(mom, gauge, phi, p, false);    
+  if (iter >= p.therm) Hold = measAction(mom, gauge, chi, p, false);    
   trajectory(mom, gauge, phi, p);
   if (iter >= p.therm) H = measAction(mom, gauge, phi, p, true);
   
