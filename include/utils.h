@@ -55,7 +55,9 @@ typedef struct{
   bool measWL = false; //Wilson loop and Creutz ratios
   bool measPC = false; //Pion
   bool measVT = false; //Vacuum trace
-  int loopMax = 8;
+
+  //Wilson loop and Polyakov loop max size.
+  int loopMax = LX/2;
   
 } param_t;
 
