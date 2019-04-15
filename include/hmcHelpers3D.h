@@ -142,3 +142,4 @@ void update_gauge(Complex gauge[LX][LY][LZ][D], double mom[LX][LY][LZ][D], doubl
   }
 }
 //------------------------------------------------------------------------------------
+#endif
