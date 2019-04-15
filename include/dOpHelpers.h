@@ -10,7 +10,7 @@
 //           | 1  0 |            | i  0 |                               | 0 -1 |
 
 void Dpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
-	  const Complex gauge[LX][LY][2], param_t p ){
+	  const Complex gauge[LX][LY][2], param_t p){
   
   double m0 = p.m;
   double  r = 1.0;
@@ -46,11 +46,6 @@ void Dpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
       
     }
   }
-}
-
-void Ddagpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
-	     const Complex gauge[LX][LY][2], param_t p ){
-  
 }
 
 void g3psi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2]){
@@ -118,6 +113,15 @@ void g3Dpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
   Dpsi(psi2, psi1, gauge, p);
   g3psi(psi2);
 }
+
+void Ddagpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
+	     const Complex gauge[LX][LY][2], param_t p){
+  
+  g3psi(psi1);
+  Dpsi(psi2, psi1, gauge, p);
+  g3psi(psi2);  
+}
+
 
 void DdagDpsi(Complex psi2[LX][LY][2], Complex psi1[LX][LY][2],
 	      const Complex gauge[LX][LY][2], param_t p) {
