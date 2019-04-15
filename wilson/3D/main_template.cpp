@@ -192,15 +192,15 @@ int main(int argc, char **argv) {
 
     //HMC acceptance rate
     accepted += accept;
-    
-    for(int z=0; z<LZ; z++) {
-      
-      //Measure the topological charge if trajectory is accepted
-      //---------------------------------------------------------------------
-      if(accept == 1) {
+          
+    //Measure the topological charge if trajectory is accepted
+    //---------------------------------------------------------------------
+    if(accept == 1) {
+
+      for(int z=0; z<LZ; z++) {
 	
 	extractLatSlice(gauge, gauge2D, z);
-
+	
 	top = measTopCharge(gauge2D, p);
 	top_int[z] = round(top);
 	name = "data/top/top_charge_Lz" + to_string(z);
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
 	top_old[z] = top_int[z];
       }
     }
-
+    
     //Perform Measurements
     //---------------------------------------------------------------------
     if( (iter+1)%p.skip == 0) {
@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
       cout << fixed << setprecision(16) << iter+1 << " "; //Iteration
       cout << time/(CLOCKS_PER_SEC) << " ";               //Time
       cout << plaqSum[(LZ-1)/2]/count << " ";             //Central Plaquette Action
-      cout << (double)top_stuck[(LZ-1)/2]/(count*p.skip) << " "; //P(stuck)
+      cout << (double)top_stuck[(LZ-1)/2]/(accepted) << " "; //P(stuck)
       cout << expdHAve/hmccount << " ";                   //Average exp(-dH)
       cout << dHAve/hmccount << " ";                      //Average dH
       cout << (double)accepted/(count*p.skip) << " ";     //Acceptance
@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
 		iter+1,		
 		time/CLOCKS_PER_SEC,
 		plaqSum[z]/count,
-		(double)top_stuck[z]/(count*p.skip),
+		(double)top_stuck[z]/(accepted),
 		expdHAve/hmccount,
 		dHAve/hmccount,
 		(double)accepted/(count*p.skip),

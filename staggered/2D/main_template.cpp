@@ -230,7 +230,7 @@ int main(int argc, char **argv) {
 	      iter+1,
 	      time/CLOCKS_PER_SEC,
 	      plaqSum/count,
-	      (double)top_stuck/(count*p.skip),
+	      (double)top_stuck/(accepted),
 	      expdHAve/hmccount,
 	      dHAve/hmccount,
 	      (double)accepted/(count*p.skip),
