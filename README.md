@@ -56,9 +56,9 @@ In each (Action/Dimension) directory we provide four files:
 
 We have deliberatly left some parameters of the code as preprocessor defines.
 This is so that any attempt to parallelise the code with, say OpenACC, will
-be easier. In order to constrcut an exectuable, one must edit the 'launcher.sh`
-file with the desired parameters. The 'launcher.sh` script will then construct
-a `Makefile`, a 'main.cpp' file, and an executable, and will then launch the job.
+be easier. In order to constrcut an exectuable, one must edit the `launcher.sh`
+file with the desired parameters. The `launcher.sh` script will then construct
+a `Makefile`, a `main.cpp` file, and an executable, and will then launch the job.
 
 ## Dependencies
 
