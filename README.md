@@ -36,7 +36,7 @@ the source for further information. We list here the features as a synopsis:
 
 ### Measurements
 
-At the preset time, only gauge measurements are implemented.
+At the preset time, the following measurements are implemented,
 
    1. Average plaquette
    2. Wilson loops (for Creutz ratios)
