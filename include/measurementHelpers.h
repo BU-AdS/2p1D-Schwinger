@@ -30,7 +30,9 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
   
   Complex wLoops[LX/2][LY/2];
   zeroWL(wLoops);
+
   double sigma[LX/2];  
+  for(int i=0; i<LX/2; i++) sigma[i] = 0.0;
   
   Complex w;
   int p1, p2, dx, dy, x, y;
@@ -39,14 +41,16 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
   //Smear the gauge field
   Complex smeared[LX][LY][2];
   smearLink(smeared, gauge, p);
+
+  int loopMax = p.loopMax;
   
   //Loop over all X side sizes of rectangle 
-  for(int Xrect=1; Xrect<p.loopMax; Xrect++) {
+  for(int Xrect=1; Xrect<loopMax; Xrect++) {
       
     //Loop over all Y side sizes of rectangle
-    for(int Yrect=1; Yrect<p.loopMax; Yrect++) {
+    for(int Yrect=1; Yrect<loopMax; Yrect++) {
       
-      //Loop over all x,y
+      //Loop over all x,y starting points
       for(x=0; x<LX; x++)
 	for(y=0; y<LY; y++){
 	    
@@ -71,12 +75,12 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
   }
 
   //Compute string tension
-  for(int size=1; size<LX/2; size++) {
-    sigma[size]  = - log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
-			     (real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
+  for(int size=1; size<loopMax; size++) {
+    sigma[size]  = -log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
+			    (real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
     
-    sigma[size] += - log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
-			     (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
+    sigma[size] += -log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
+			    (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
     
     sigma[size] *= 0.5;
     
@@ -92,13 +96,13 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
   sprintf(fname, "%s", name.c_str());
   fp = fopen(fname, "a");
   fprintf(fp, "%d %.16e ", iter+1, -log(abs(plaq)) );
-  for(int size=2; size<LX/2; size++)
+  for(int size=2; size<loopMax; size++)
     fprintf(fp, "%.16e ", sigma[size]);
   fprintf(fp, "\n");
   fclose(fp);
   
-  for(int sizex=2; sizex<LX/2; sizex++)
-    for(int sizey=sizex-1; (sizey < LY/2 && sizey <= sizex+1); sizey++) {
+  for(int sizex=2; sizex<loopMax; sizex++)
+    for(int sizey=sizex-1; (sizey < loopMax && sizey <= sizex+1); sizey++) {
       name = "data/rect/rectWL";
       name += "_" + to_string(sizex) + "_" + to_string(sizey);
       constructName(name, p);
@@ -124,7 +128,7 @@ void measPolyakovLoops(Complex gauge[LX][LY][2], int iter, param_t p){
   //x0=1 -> x0 = L/2-1.
 
   //Starting x
-  for(int x=0; x<LX/2; x++) {
+  for(int x=0; x<p.loopMax; x++) {
 
     //Loop over time
     w1 = Complex(1.0,0.0);
@@ -151,7 +155,7 @@ void measPolyakovLoops(Complex gauge[LX][LY][2], int iter, param_t p){
   sprintf(fname, "%s", name.c_str());
   fp = fopen(fname, "a");
   fprintf(fp, "%d ", iter+1);
-  for(int size=1; size<LX/2; size++)
+  for(int size=1; size<p.loopMax; size++)
     fprintf(fp, "%.16e %.16e ",
 	    real(pLoops[size]),
 	    imag(pLoops[size]) );
@@ -164,7 +168,7 @@ void measPolyakovLoops(Complex gauge[LX][LY][2], int iter, param_t p){
   sprintf(fname, "%s", name.c_str());
   fp = fopen(fname, "a");
   fprintf(fp, "%d ", iter+1);
-  for(int size=1 ; size < LX/2-1; size++)
+  for(int size=1 ; size < p.loopMax-1; size++)
     fprintf(fp, "%.16e ",
 	    real(pLoops[size+1])/real(pLoops[size]));
   fprintf(fp, "\n");

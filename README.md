@@ -36,7 +36,7 @@ the source for further information. We list here the features as a synopsis:
 
 ### Measurements
 
-At the preset time, only gauge measurements are implemented.
+At the preset time, the following measurements are implemented,
 
    1. Average plaquette
    2. Wilson loops (for Creutz ratios)
@@ -56,9 +56,9 @@ In each (Action/Dimension) directory we provide four files:
 
 We have deliberatly left some parameters of the code as preprocessor defines.
 This is so that any attempt to parallelise the code with, say OpenACC, will
-be easier. In order to constrcut an exectuable, one must edit the 'launcher.sh`
-file with the desired parameters. The 'launcher.sh` script will then construct
-a `Makefile`, a 'main.cpp' file, and an executable, and will then launch the job.
+be easier. In order to constrcut an exectuable, one must edit the `launcher.sh`
+file with the desired parameters. The `launcher.sh` script will then construct
+a `Makefile`, a `main.cpp` file, and an executable, and will then launch the job.
 
 ## Dependencies
 
