@@ -55,7 +55,7 @@ typedef struct{
   bool measWL = false; //Wilson loop and Creutz ratios
   bool measPC = false; //Pion
   bool measVT = false; //Vacuum trace
-  int loopMax = 8;
+  int loopMax = LY/2;
   
 } param_t;
 

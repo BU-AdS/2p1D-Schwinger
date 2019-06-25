@@ -36,6 +36,10 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
   int p1, p2, dx, dy, x, y;
   double inv_Lsq = 1.0/(LX*LY);
 
+  //Smear the gauge field
+  Complex smeared[LX][LY][2];
+  smearLink(smeared, gauge, p);
+  
   //Loop over all X side sizes of rectangle 
   for(int Xrect=1; Xrect<p.loopMax; Xrect++) {
       
@@ -49,18 +53,18 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
 	  w = Complex(1.0,0.0);
 	    
 	  //Move in +x up to p1.
-	  for(dx=0; dx<Xrect; dx++)     w *= gauge[ (x+dx)%LX ][y][0];
+	  for(dx=0; dx<Xrect; dx++)     w *= smeared[ (x+dx)%LX ][y][0];
 	    
 	  //Move in +y up to p2 (p1 constant)
 	  p1 = (x + Xrect)%LX;
-	  for(dy=0; dy<Yrect; dy++)     w *= gauge[p1][ (y+dy)%LY ][1];
+	  for(dy=0; dy<Yrect; dy++)     w *= smeared[p1][ (y+dy)%LY ][1];
 	    
 	  //Move in -x from p1 to (p2 constant)
 	  p2 = (y + Yrect)%LY;
-	  for(dx=Xrect-1; dx>=0; dx--)  w *= conj(gauge[ (x+dx)%LX ][p2][0]);
+	  for(dx=Xrect-1; dx>=0; dx--)  w *= conj(smeared[ (x+dx)%LX ][p2][0]);
 	  
 	  //Move in -y from p2 to y
-	  for(dy=Yrect-1; dy>=0; dy--)  w *= conj(gauge[x][ (y+dy)%LY ][1]);
+	  for(dy=Yrect-1; dy>=0; dy--)  w *= conj(smeared[x][ (y+dy)%LY ][1]);
 	  wLoops[Xrect][Yrect] += w*inv_Lsq;
 	}
     }

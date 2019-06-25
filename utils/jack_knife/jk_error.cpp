@@ -7,14 +7,14 @@
 
 using namespace std;
 
-void jackknife(double **array, int N, int T, int B);
+void jackknife(double **array, int N, int T, int B, int WL);
 
 int main(int argc, char **argv) {
 
   cout << setprecision(16);
   
-  if (argc != 5) {
-    cout << "./jackknife <filename> <data points> <columns> <JK block size>" << endl;
+  if (argc < 5 || argc > 6) {
+    cout << "./jackknife <filename> <data points> <columns> <JK block size> OPTIONAL:<Wilson loop size>" << endl;
     exit(0);
   }
   
@@ -30,7 +30,8 @@ int main(int argc, char **argv) {
   int N = atoi(argv[2]);   //Number of data points
   int T = atoi(argv[3]);   //Number of cols in data point
   int B = atoi(argv[4]);   //Number of jk blocks
-
+  int WL = atoi(argv[5]);  //Wilson Loop size
+  
   if( N%B != 0) {
     cout << "Please ensure <data points> " << N << " is divisible by <block size> " << B << endl;
     exit(0);
@@ -49,10 +50,10 @@ int main(int argc, char **argv) {
   }
 
   //Jackknife and dump the data
-  jackknife(array, N, T, B);
+  jackknife(array, N, T, B, WL);
 }
 
-void jackknife(double **array, int N, int T, int B) {
+void jackknife(double **array, int N, int T, int B, int WL) {
 
   //First we compute the mean and the effective mass from the
   //entire data set
@@ -126,16 +127,37 @@ void jackknife(double **array, int N, int T, int B) {
   }
   
   //Dump to disk
-  string name("m_eff.dat"); //Name of the output file
-  fstream outputFile;
-  outputFile.open(name, fstream::out);
-  if(!outputFile.is_open()) {
-    cout << "Error opening file: " << name << endl;
-    exit(0);
-  }
 
-  //When dumping to disk, forget the oth column which was just the data point entry.
-  for(int t=1; t<T; t++) {
-    outputFile << t-1 << setprecision(16) << " " << mean[t] << " " << jk_err_mean[t] << " " << meff[t] << " " << jk_err_meff[t] << endl;
+  // This is pion data
+  if(T>3) {
+    string mname("m_eff.dat"); //Name of the output file
+    fstream outputFile;
+    outputFile.open(mname, fstream::out);
+    if(!outputFile.is_open()) {
+      cout << "Error opening file: " << mname << endl;
+      exit(0);
+    }    
+    cout << "Computing pion effective mass" << endl;
+    //When dumping to disk, forget the 0th column which was just the data point entry.
+    for(int t=1; t<T; t++) {
+      outputFile << t-1 << setprecision(16) << " " << mean[t] << " " << jk_err_mean[t] << " " << meff[t] << " " << jk_err_meff[t] << endl;
+    }  
+    outputFile.close();
+  }
+  // This is wilson loop data
+  else {
+    string name("NN_loop.dat"); //Name of the output file
+    fstream outputFile;
+    outputFile.open(name, fstream::out);
+    if(!outputFile.is_open()) {
+      cout << "Error opening file: " << name << endl;
+      exit(0);
+    }
+    cout << "Computing average NN loop" << endl;
+    
+    //When dumping to disk, forget the 0th column which was just the data point entry.
+    for(int t=1; t<T-1; t++) {
+      outputFile << WL << setprecision(16) << " " << mean[t] << " " << jk_err_mean[t] << endl;
+    }  
   }  
 }
