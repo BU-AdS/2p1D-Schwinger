@@ -127,10 +127,14 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
 	for(dx=-LX/2; dx<LX/2; dx++) {
 	  int x2 = ((x1 + dx) + LX)%LX;
 	  
-	  if (abs(dx) == LX/2) pLoops[abs(dx)] += conj(loops[x])*loops[x2];
-	  else pLoops[abs(dx)] += conj(loops[x])*loops[x2]/2;
+	  if (abs(dx) == LX/2) pLoops[abs(dx)] += conj(loops[x1])*loops[x2];
+	  else pLoops[abs(dx)] += conj(loops[x1])*loops[x2]/2.0;
 	}
       }
+
+      string name;
+      char fname[256];
+      FILE *fp;
       
       name= "data/polyakov/polyakov";
       name += "_hits" + to_string(hits);
