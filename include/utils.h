@@ -28,9 +28,9 @@ typedef struct{
   //physics
   int XLatsize = LX;
   int YLatsize = LY;
-  double beta = 3.0;
+  double beta = 4.0;
   double betaz = 0.5;
-  double m = -0.06;
+  double m = 0.1;
   bool dynamic = true;
   bool lockedZ = false;
   bool deflate = true;

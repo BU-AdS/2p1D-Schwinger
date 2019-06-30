@@ -1,20 +1,29 @@
-TARGET = jk_error
-OBJS   = jk_error.o
+OBJS = jkEffMass.o
 CXX = g++
 CXXFLAGS = -O3 -g -std=c++11 
 #============================================================
 
-all: ${TARGET}
+all: jkEffMass
 
-${TARGET}: ${OBJS}
-	${CXX} ${CXXFLAGS} -o ${TARGET} ${OBJS}
+jkEffMass: jkEffMass.o
+	${CXX} ${CXXFLAGS} -o jkEffMass jkEffMass.o
 
-jk_error.o: jk_error.cpp Makefile 
-	${CXX} ${CXXFLAGS} -c jk_error.cpp
+jkEffMass.o: jkEffMass.cpp Makefile 
+	${CXX} ${CXXFLAGS} -c jkEffMass.cpp
 
 #============================================================
 
-ALL_SOURCES = Makefile $(SOURCES) 
+all: creutzRatio
+
+creutzRatio: creutzRatio.o
+	${CXX} ${CXXFLAGS} -o creutzRatio creutzRatio.o
+
+creutzRatio.o: creutzRatio.cpp Makefile 
+	${CXX} ${CXXFLAGS} -c creutzRatio.cpp
+
+#============================================================
+
+ALL_SOURCES = Makefile creutzRatio.cpp jkEffMass.cpp
 
 clean:
-	rm -f $(TARGET) $(OBJS) core*
+	rm -f jkEffMass jkEffMass.o creutzRatio creutzRatio.o core*

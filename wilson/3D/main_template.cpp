@@ -276,12 +276,9 @@ int main(int argc, char **argv) {
       int cz = (LZ-1)/2;
       extractLatSlice(gauge, gauge2D, cz);
       
-      //Polyakov Loops      
-      if(p.measPL) measPolyakovLoops(gauge2D, iter, p);
-      
-      //Creutz Ratios
-      if(p.measWL) measWilsonLoops(gauge2D, plaq[cz], iter, p);
-      
+      //Gauge observables
+      if(p.measPL || p.measWL) measWilsonLoops(gauge2D, plaq[cz], iter, p);
+            
       //Pion Correlation
       if(p.measPC) measPionCorrelation(gauge2D, top_old[cz], iter, p);
       
@@ -289,7 +286,7 @@ int main(int argc, char **argv) {
       if(p.measVT) measVacuumTrace(gauge2D, top_old[cz], iter, p);
       //-------------------------------------------------------------
     }
-  }      
+  }   
   return 0;
 }
 

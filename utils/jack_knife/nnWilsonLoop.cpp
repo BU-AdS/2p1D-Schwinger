@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
   cout << setprecision(16);
   
   if (argc < 5 || argc > 6) {
-    cout << "./jackknife <filename> <data points> <columns> <JK block size> OPTIONAL:<Wilson loop size>" << endl;
+    cout << "./jackknife <filename> <data points> <columns> <JK block size> <Wilson loop size (NOT USED FOR m_eff)>" << endl;
     exit(0);
   }
   

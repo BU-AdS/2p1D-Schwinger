@@ -255,15 +255,12 @@ int main(int argc, char **argv) {
 
       //Physical observables
       //-------------------------------------------------------------      
-      //Polyakov Loops      
-      if(p.measPL) measPolyakovLoops(gauge, iter, p);
+      //Gauge observables
+      if(p.measPL || p.measWL) measWilsonLoops(gauge, plaq, iter, p);
       
-      //Creutz Ratios
-      if(p.measWL) measWilsonLoops(gauge, plaq, iter, p);
-
       //Pion Correlation
       if(p.measPC) measPionCorrelation(gauge, top_old, iter, p);
-
+      
       //Vacuum Trace
       if(p.measVT) measVacuumTrace(gauge, top_old, iter, p);
       //-------------------------------------------------------------

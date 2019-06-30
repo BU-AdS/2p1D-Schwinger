@@ -38,141 +38,117 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
   int p1, p2, dx, dy, x, y;
   double inv_Lsq = 1.0/(LX*LY);
 
-  //Smear the gauge field
-  Complex smeared[LX][LY][2];
-  smearLink(smeared, gauge, p);
-
   int loopMax = p.loopMax;
-  
-  //Loop over all X side sizes of rectangle 
-  for(int Xrect=1; Xrect<loopMax; Xrect++) {
+
+  // Polyakov loops and Creutz ratios are measured for 
+  // several values of smearing hits to observe the effect
+  // of APE smearing.
+  for (int hits = 0; hits <= p.smearIter; hits++) {
+    
+    // CREUTZ RATIOS
+    //----------------------------------------------------------------------------
+    if(p.measWL) {
+      //Smear the gauge field
+      Complex smeared[LX][LY][2];
+      smearLink(smeared, gauge, p);    
       
-    //Loop over all Y side sizes of rectangle
-    for(int Yrect=1; Yrect<loopMax; Yrect++) {
-      
-      //Loop over all x,y starting points
-      for(x=0; x<LX; x++)
-	for(y=0; y<LY; y++){
-	    
-	  w = Complex(1.0,0.0);
-	    
-	  //Move in +x up to p1.
-	  for(dx=0; dx<Xrect; dx++)     w *= smeared[ (x+dx)%LX ][y][0];
-	    
-	  //Move in +y up to p2 (p1 constant)
-	  p1 = (x + Xrect)%LX;
-	  for(dy=0; dy<Yrect; dy++)     w *= smeared[p1][ (y+dy)%LY ][1];
-	    
-	  //Move in -x from p1 to (p2 constant)
-	  p2 = (y + Yrect)%LY;
-	  for(dx=Xrect-1; dx>=0; dx--)  w *= conj(smeared[ (x+dx)%LX ][p2][0]);
+      //Loop over all X side sizes of rectangle 
+      for(int Xrect=1; Xrect<loopMax; Xrect++) {
+	
+	//Loop over all Y side sizes of rectangle
+	for(int Yrect=1; Yrect<loopMax; Yrect++) {
 	  
-	  //Move in -y from p2 to y
-	  for(dy=Yrect-1; dy>=0; dy--)  w *= conj(smeared[x][ (y+dy)%LY ][1]);
-	  wLoops[Xrect][Yrect] += w*inv_Lsq;
+	  //Loop over all x,y starting points
+	  for(x=0; x<LX; x++)
+	    for(y=0; y<LY; y++){
+	      
+	      w = Complex(1.0,0.0);
+	      
+	      //Move in +x up to p1.
+	      for(dx=0; dx<Xrect; dx++)     w *= smeared[ (x+dx)%LX ][y][0];
+	      
+	      //Move in +y up to p2 (p1 constant)
+	      p1 = (x + Xrect)%LX;
+	      for(dy=0; dy<Yrect; dy++)     w *= smeared[p1][ (y+dy)%LY ][1];
+	      
+	      //Move in -x from p1 to (p2 constant)
+	      p2 = (y + Yrect)%LY;
+	      for(dx=Xrect-1; dx>=0; dx--)  w *= conj(smeared[ (x+dx)%LX ][p2][0]);
+	      
+	      //Move in -y from p2 to y
+	      for(dy=Yrect-1; dy>=0; dy--)  w *= conj(smeared[x][ (y+dy)%LY ][1]);
+	      wLoops[Xrect][Yrect] += w*inv_Lsq;
+	    }
+	}
+      }
+      
+      string name;
+      char fname[256];
+      FILE *fp;
+      
+      for(int sizex = 1; sizex<loopMax; sizex++)
+	for(int sizey = (sizex == 1 ? 1 : sizex-1); (sizey < loopMax && sizey <= sizex+1); sizey++) {
+	  name = "data/rect/rectWL";
+	  name += "_hits" + to_string(hits) + "_" + to_string(sizex) + "_" + to_string(sizey);
+	  constructName(name, p);
+	  name += ".dat";
+	  sprintf(fname, "%s", name.c_str());
+	  fp = fopen(fname, "a");
+	  fprintf(fp, "%d %.16e %.16e\n", iter+1, real(wLoops[sizex][sizey]), imag(wLoops[sizex][sizey]));	    
+	  fclose(fp);
 	}
     }
-  }
-
-  //Compute string tension
-  for(int size=1; size<loopMax; size++) {
-    sigma[size]  = -log(abs((real(wLoops[size][size])/real(wLoops[size-1][size]))* 
-			    (real(wLoops[size-1][size-1])/real(wLoops[size][size-1]))));
     
-    sigma[size] += -log(abs((real(wLoops[size][size])/real(wLoops[size][size-1]))* 
-			    (real(wLoops[size-1][size-1])/real(wLoops[size-1][size]))));
-    
-    sigma[size] *= 0.5;
-    
-  }
-
-  string name;
-  char fname[256];
-  FILE *fp;
-  
-  name = "data/creutz/creutz";
-  constructName(name, p);
-  name += ".dat";
-  sprintf(fname, "%s", name.c_str());
-  fp = fopen(fname, "a");
-  fprintf(fp, "%d %.16e ", iter+1, -log(abs(plaq)) );
-  for(int size=2; size<loopMax; size++)
-    fprintf(fp, "%.16e ", sigma[size]);
-  fprintf(fp, "\n");
-  fclose(fp);
-  
-  for(int sizex=2; sizex<loopMax; sizex++)
-    for(int sizey=sizex-1; (sizey < loopMax && sizey <= sizex+1); sizey++) {
-      name = "data/rect/rectWL";
-      name += "_" + to_string(sizex) + "_" + to_string(sizey);
+    // POLYAKOV LOOPS
+    //----------------------------------------------------------------------------
+    if(p.measPL) {
+      Complex pLoops[LX/2];
+      Complex loops[LX];
+      for(int x=0; x<LX/2; x++) pLoops[x] = 0.0;
+      for(int x=0; x<LX; x++) loops[x] = Complex(1.0,0.0);
+      
+      //Eack polyakov loop correlation is defined by its delta x value.
+      //We start at x0, separate to x0 + (x0+L/2-1), and loop over all
+      //x0=1 -> x0 = L/2-1.
+      
+      //We compute all loops at each value of x. Starting x points are 
+      //irrelevant for closed temporal loops
+      for(int x=0; x<LX; x++) 
+	for(int y=0; y<LY; y++) 
+	  loops[x] *= gauge[x][y][1];
+      
+      //Now we have all possible loops, we compute all possible combinations
+      //(all possible x) * (all possible dx)
+      
+      //Loop1
+      for(int x1=0; x1<LX; x1++) {
+	
+	//Loop2
+	for(dx=-LX/2; dx<LX/2; dx++) {
+	  int x2 = ((x1 + dx) + LX)%LX;
+	  
+	  if (abs(dx) == LX/2) pLoops[abs(dx)] += conj(loops[x])*loops[x2];
+	  else pLoops[abs(dx)] += conj(loops[x])*loops[x2]/2;
+	}
+      }
+      
+      name= "data/polyakov/polyakov";
+      name += "_hits" + to_string(hits);
       constructName(name, p);
       name += ".dat";
       sprintf(fname, "%s", name.c_str());
+      
       fp = fopen(fname, "a");
-      fprintf(fp, "%d %.16e %.16e\n", iter+1, real(wLoops[sizex][sizey]), imag(wLoops[sizex][sizey]));	    
+      fprintf(fp, "%d ", iter+1);
+      for(dx=0; dx<LX/2; dx++)
+	fprintf(fp, "%.16e %.16e ",
+		real(pLoops[dx]),
+		imag(pLoops[dx]));
+      fprintf(fp, "\n");
       fclose(fp);
-    }
-  
-  return;
-}
-
-//Polyakov loops. x is the spatial dim, y is the temporal dim.
-void measPolyakovLoops(Complex gauge[LX][LY][2], int iter, param_t p){
-
-  Complex pLoops[LX/2];
-  for(int x=0; x<LX/2; x++) pLoops[x] = 0.0;
-  
-  Complex w1, w2;
-  //Eack polyakov loop correlation is defined by its delta x value.
-  //We start at x0, separate to x0 + (x0+L/2-1), and loop over all
-  //x0=1 -> x0 = L/2-1.
-
-  //Starting x
-  for(int x=0; x<p.loopMax; x++) {
-
-    //Loop over time
-    w1 = Complex(1.0,0.0);
-    for(int dy=0; dy<LY; dy++) w1 *= gauge[x][dy][1];
-    
-    //x separation
-    for(int dx=0; dx<LX/2; dx++) {
-      
-      w2 = Complex(1.0,0.0);
-      for(int dy=0; dy<LY; dy++) w2 *= gauge[x+dx][dy][1];
-      
-      pLoops[dx] += conj(w1)*w2/(1.0*LX/2);
       
     }
   }
-
-  string name;
-  char fname[256];
-  FILE *fp;
-  
-  name= "data/polyakov/polyakov";
-  constructName(name, p);
-  name += ".dat";
-  sprintf(fname, "%s", name.c_str());
-  fp = fopen(fname, "a");
-  fprintf(fp, "%d ", iter+1);
-  for(int size=1; size<p.loopMax; size++)
-    fprintf(fp, "%.16e %.16e ",
-	    real(pLoops[size]),
-	    imag(pLoops[size]) );
-  fprintf(fp, "\n");
-  fclose(fp);
-  
-  name = "data/polyakov/polyakov_ratios";
-  constructName(name, p);
-  name += ".dat";  
-  sprintf(fname, "%s", name.c_str());
-  fp = fopen(fname, "a");
-  fprintf(fp, "%d ", iter+1);
-  for(int size=1 ; size < p.loopMax-1; size++)
-    fprintf(fp, "%.16e ",
-	    real(pLoops[size+1])/real(pLoops[size]));
-  fprintf(fp, "\n");
-  fclose(fp);
   
   return;
 }
@@ -276,12 +252,6 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
       		 conj(propDn[x][y][1]) * propDn[x][y][1] +
       		 conj(propUp[x][y][0]) * propUp[x][y][0] +
       		 conj(propUp[x][y][1]) * propUp[x][y][1]));
-
-      /* tmp = (propDn[x][y][0].real() * propDn[x][y][0].real() + propDn[x][y][0].imag() * propDn[x][y][0].imag() + */
-      /* 	     propDn[x][y][1].real() * propDn[x][y][1].real() + propDn[x][y][1].imag() * propDn[x][y][1].imag() + */
-      /* 	     propUp[x][y][0].real() * propUp[x][y][0].real() + propUp[x][y][0].imag() * propUp[x][y][0].imag() + */
-      /* 	     propUp[x][y][1].real() * propUp[x][y][1].real() + propUp[x][y][1].imag() * propUp[x][y][1].imag()); */
-      
       
       corr += tmp;
     }
@@ -512,14 +482,5 @@ double measAction(double mom[LX][LY][2], Complex gauge[LX][LY][2],
   
   return H;
 }
-
 //-----------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
 #endif
