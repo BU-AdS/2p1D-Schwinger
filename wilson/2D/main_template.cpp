@@ -104,20 +104,14 @@ int main(int argc, char **argv) {
   int top_old = 0;
   int top_stuck = 0;
 
-  int histL = 101;
+  int histL = 41;
   int histQ[histL];
   double plaqSum = 0.0;
   int index = 0;
   for(int i = 0; i < histL; i++) histQ[i] = 0;
   
   Complex gauge[LX][LY][D];
-  zeroLat(gauge);  
-  // Complex gaugeFree[LX][LY][D];
-  // for(int x=0; x<LX; x++)
-  //   for(int y=0; y<LY; y++) {
-  //     gaugeFree[x][y][0] = cUnit;
-  //     gaugeFree[x][y][1] = cUnit;
-  //   }
+  zeroLat(gauge);
     
   int count = 0;
   string name;
@@ -167,6 +161,10 @@ int main(int argc, char **argv) {
     }
     iter_offset = 2*p.therm;    
   }
+
+  // Measure top charge on mother ensemble
+  top = measTopCharge(gauge, p);
+  top_old = round(top);
 
   //Begin thermalised trajectories
   //---------------------------------------------------------------------

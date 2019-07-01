@@ -147,14 +147,15 @@ void jackknife(double **arrayLsq, double **arrayLm1sq, double **arrayLLm1, doubl
       }
     }
     resampSigma[i] += -log(resampLsq[i]*resampLm1sq[i]/(resampLLm1[i]*resampLm1L[i]));
+        
   }
 
-  //Get jk error on sigma
+  //Get jk error on sigma 
   for(int i=0; i<Nr; i++) {
     jkErrSigma += pow(sigma - resampSigma[i],2);
   }
   jkErrSigma = sqrt(coeff*jkErrSigma);
-  
+
   string name("sigma.dat"); //Name of the output file
   fstream outputFile;
   outputFile.open(name, fstream::out);
@@ -162,7 +163,8 @@ void jackknife(double **arrayLsq, double **arrayLm1sq, double **arrayLLm1, doubl
     cout << "Error opening file: " << name << endl;
     exit(0);
   }
-  
   outputFile << L << setprecision(16) << " " << sigma << " " << jkErrSigma << endl;
+  outputFile.close();
+  
 }
 

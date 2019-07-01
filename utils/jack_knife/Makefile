@@ -1,15 +1,15 @@
-OBJS = jkEffMass.o
+#============================================================
 CXX = g++
 CXXFLAGS = -O3 -g -std=c++11 
 #============================================================
 
-all: jkEffMass
+all: effMass
 
-jkEffMass: jkEffMass.o
-	${CXX} ${CXXFLAGS} -o jkEffMass jkEffMass.o
+jkEffMass: effMass.o
+	${CXX} ${CXXFLAGS} -o effMass effMass.o
 
-jkEffMass.o: jkEffMass.cpp Makefile 
-	${CXX} ${CXXFLAGS} -c jkEffMass.cpp
+effMass.o: effMass.cpp Makefile 
+	${CXX} ${CXXFLAGS} -c effMass.cpp
 
 #============================================================
 
@@ -23,7 +23,7 @@ creutzRatio.o: creutzRatio.cpp Makefile
 
 #============================================================
 
-ALL_SOURCES = Makefile creutzRatio.cpp jkEffMass.cpp
+ALL_SOURCES = Makefile creutzRatio.cpp effMass.cpp
 
 clean:
-	rm -f jkEffMass jkEffMass.o creutzRatio creutzRatio.o core*
+	rm -f effMass effMass.o creutzRatio creutzRatio.o core*

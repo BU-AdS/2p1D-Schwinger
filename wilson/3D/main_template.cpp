@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
   int top_old[LZ];
   int top_stuck[LZ];
 
-  int histL = 101;
+  int histL = 41;
   int histQ[LZ][histL];
   double plaqSum[LZ];
   double plaq[LZ];
@@ -181,6 +181,13 @@ int main(int argc, char **argv) {
       cout << time/CLOCKS_PER_SEC << " " << endl;         //Time
     }
     iter_offset = 2*p.therm;    
+  }
+
+  // Measure top charge on mother ensemble
+  for(int z=0; z<LZ; z++) {
+    //extractLatSlice(gauge, gauge2D, z);
+    //top = measTopCharge(gauge2D, p);
+    //top_old[z] = round(top);
   }
 
   //Begin thermalised trajectories
@@ -268,6 +275,16 @@ int main(int argc, char **argv) {
 		(double)accepted/(count*p.skip),
 		top_int[z]);
 	fclose(fp);
+
+	//Update topoligical charge histogram
+	name = "data/top/top_hist_Lz" + to_string(z);
+	constructName(name, p);
+	name += ".dat";
+	sprintf(fname, "%s", name.c_str());
+	fp = fopen(fname, "w");
+	for(int i=0; i<histL; i++) fprintf(fp, "%d %d\n", i - (histL-1)/2, histQ[z][i]);
+	fclose(fp);	
+	
       }	
 
       //Physical observables

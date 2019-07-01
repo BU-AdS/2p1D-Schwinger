@@ -27,30 +27,32 @@ using namespace std;
 //   ratio:    ---------------------------------------  = exp[ -sigma]
 //              exp[ -sigma (L-1)L] exp[-sigma L(L-1)]
 void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p){
-  
-  Complex wLoops[LX/2][LY/2];
-  zeroWL(wLoops);
-
-  double sigma[LX/2];  
-  for(int i=0; i<LX/2; i++) sigma[i] = 0.0;
-  
+    
   Complex w;
   int p1, p2, dx, dy, x, y;
   double inv_Lsq = 1.0/(LX*LY);
-
   int loopMax = p.loopMax;
+  int maxSmearIter = p.smearIter;
 
   // Polyakov loops and Creutz ratios are measured for 
   // several values of smearing hits to observe the effect
   // of APE smearing.
-  for (int hits = 0; hits <= p.smearIter; hits++) {
+  for (int hits = 0; hits <= maxSmearIter; hits++) {
+
+    p.smearIter = hits;
+    
+    //Smear the gauge field
+    Complex smeared[LX][LY][2];
+    smearLink(smeared, gauge, p);    
     
     // CREUTZ RATIOS
     //----------------------------------------------------------------------------
     if(p.measWL) {
-      //Smear the gauge field
-      Complex smeared[LX][LY][2];
-      smearLink(smeared, gauge, p);    
+  
+      Complex wLoops[LX/2][LY/2];
+      zeroWL(wLoops);
+      double sigma[LX/2];  
+      for(int i=0; i<LX/2; i++) sigma[i] = 0.0;
       
       //Loop over all X side sizes of rectangle 
       for(int Xrect=1; Xrect<loopMax; Xrect++) {
@@ -77,6 +79,7 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
 	      
 	      //Move in -y from p2 to y
 	      for(dy=Yrect-1; dy>=0; dy--)  w *= conj(smeared[x][ (y+dy)%LY ][1]);
+
 	      wLoops[Xrect][Yrect] += w*inv_Lsq;
 	    }
 	}
@@ -104,6 +107,7 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
     if(p.measPL) {
       Complex pLoops[LX/2];
       Complex loops[LX];
+
       for(int x=0; x<LX/2; x++) pLoops[x] = 0.0;
       for(int x=0; x<LX; x++) loops[x] = Complex(1.0,0.0);
       
@@ -115,7 +119,7 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
       //irrelevant for closed temporal loops
       for(int x=0; x<LX; x++) 
 	for(int y=0; y<LY; y++) 
-	  loops[x] *= gauge[x][y][1];
+	  loops[x] *= smeared[x][y][1];
       
       //Now we have all possible loops, we compute all possible combinations
       //(all possible x) * (all possible dx)
@@ -394,8 +398,8 @@ double measGaugeAction(Complex gauge[LX][LY][2], param_t p) {
   for(int x=0; x<LX;x++)
     for(int y=0; y<LY; y++){      
       plaq = gauge[x][y][0]*gauge[ (x+1)%LX ][y][1]*conj(gauge[x][ (y+1)%LY ][0])*conj(gauge[x][y][1]);
-      Hgauge += beta*real(1.0 - plaq);      
-    }  
+      Hgauge += beta*real(1.0 - plaq);
+    }
   return Hgauge;
 }
 
