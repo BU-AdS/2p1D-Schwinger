@@ -1,13 +1,12 @@
 #!/bin/bash
 
-BETA=3
+BETA=5
 BETAZ=1
 
 mkdir logs
 
-while [ ${BETA} -le 3 ]; do
+while [ ${BETA} -le 5 ]; do
     
-    #./launcher.sh ${BETA}.0 ${BETAZ} >& logs/log_${BETA}_${BETAZ}.log &
     ./launcher.sh ${BETA}.0 ${BETAZ} 
     
     let BETA=BETA+1

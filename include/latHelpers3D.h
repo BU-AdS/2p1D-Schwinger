@@ -23,7 +23,7 @@ template<typename T> inline void zeroLat(T v[LX][LY][LZ][3]) {
 }
 
 // Copy lattice
-template<typename T> inline void copyLat(T v2[LX][LY][LZ][3], T v1[LX][LY][LZ][3]) {
+template<typename T> inline void copyLat(T v2[LX][LY][LZ][3], const T v1[LX][LY][LZ][3]) {
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int z=0; z<LZ; z++)
@@ -32,9 +32,9 @@ template<typename T> inline void copyLat(T v2[LX][LY][LZ][3], T v1[LX][LY][LZ][3
 }
 
 // Extract 2D lattice slice
-template<typename T> inline void extractLatSlice(T gauge[LX][LY][LZ][3],
+template<typename T> inline void extractLatSlice(const T gauge[LX][LY][LZ][3],
 						 T gauge2D[LX][LY][2],
-						 int slice) {
+						 const int slice) {
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int mu=0; mu<2; mu++)
@@ -43,8 +43,8 @@ template<typename T> inline void extractLatSlice(T gauge[LX][LY][LZ][3],
 
 // Insert 2D slice
 template<typename T> inline void insertLatSlice(T gauge[LX][LY][LZ][3],
-						T gauge2D[LX][LY][2],
-						int slice) {
+						const T gauge2D[LX][LY][2],
+						const int slice) {
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int mu=0; mu<2; mu++)
@@ -59,9 +59,8 @@ template<typename T> inline void zeroWL(T v[LX/2][LY/2][LZ]) {
 	v[x][y][z] = 0.0;  
 }
 
-void checkGauge(Complex gauge[LX][LY][LZ][3], Complex gaugeAlt[LX][LY][LZ][3], int n) {
+void checkGauge(const Complex gauge[LX][LY][LZ][3], const Complex gaugeAlt[LX][LY][LZ][3], int callID) {
 
-#ifdef CHECK_GAUGE
   bool fail = false;
   
   for(int x=0; x<LX; x++)
@@ -69,7 +68,7 @@ void checkGauge(Complex gauge[LX][LY][LZ][3], Complex gaugeAlt[LX][LY][LZ][3], i
       for(int z=0; z<LZ; z++)
 	for(int mu=0; mu<3; mu++)
 	  if(gauge[x][y][z][mu] != gaugeAlt[x][y][z][mu]) {
-	    cout << "Gauge Check fail at " << x << " " << y << " " << z << " " << mu << " from call " << n << endl;
+	    cout << "Gauge Check fail at " << x << " " << y << " " << z << " " << mu << " from call " << callID << endl;
 	    fail = true;
 	  }
   
@@ -84,7 +83,6 @@ void checkGauge(Complex gauge[LX][LY][LZ][3], Complex gaugeAlt[LX][LY][LZ][3], i
 	  }
     exit(0);
   }
-#endif
 }
 
 #endif

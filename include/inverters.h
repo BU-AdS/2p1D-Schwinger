@@ -15,7 +15,7 @@
 
 // Wilson g5Dg5D matrix inverter
 //---------------------------------------------------------------
-int Ainvpsi(Complex x[LX][LY][2], Complex b[LX][LY][2], Complex x0[LX][LY][2],
+int Ainvpsi(Complex x[LX][LY][2], const Complex b[LX][LY][2], Complex x0[LX][LY][2],
 	    const Complex gauge[LX][LY][2], param_t param) {
   
   int success = 0;
@@ -187,7 +187,7 @@ void forceD(double fD[LX][LY][2], Complex gauge[LX][LY][2], Complex phi[LX][LY][
 
 
 //Staggered
-int Ainvpsi(Complex psi[LX][LY], Complex b[LX][LY], Complex psi0[LX][LY], const Complex gauge[LX][LY][2], param_t p) {
+int Ainvpsi(Complex psi[LX][LY], const Complex b[LX][LY], Complex psi0[LX][LY], const Complex gauge[LX][LY][2], param_t p) {
 
   int success = 0;
   

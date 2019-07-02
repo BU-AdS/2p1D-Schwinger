@@ -1,12 +1,12 @@
 #!/bin/bash
 
-BETA=2
+BETA=4
 
 mkdir logs
 
-while [ ${BETA} -le 2 ]; do
+while [ ${BETA} -le 4 ]; do
     
-    ./launcher.sh ${BETA}.0 >& logs/log_${BETA}.log &
+    ./launcher.sh ${BETA}.0 
     
     let BETA=BETA+1
     

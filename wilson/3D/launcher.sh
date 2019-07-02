@@ -10,8 +10,8 @@ mkdir -p {gauge,data/{data,plaq,creutz,polyakov,rect,top,pion,vacuum}}
 
 # configure preamble
 #---------------------------------------------------------------
-LX=24
-LY=24
+LX=48
+LY=48
 LZ=3
 # Construct the correct executable
 cp main_template.cpp main.cpp
@@ -31,9 +31,9 @@ BETA=$1
 BETAZ=$2
 
 # The total number of HMC iterations to perform.
-HMC_ITER=5000
+HMC_ITER=1000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=100
+HMC_THERM=25
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -41,12 +41,12 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # Number of HMC steps in the integration 
-HMC_NSTEP=25
+HMC_NSTEP=40
 # HMC trajectory time
 HMC_TAU=1.0
 
 # Number of APE smearing hits to perform when measuring topology
-APE_ITER=1
+APE_ITER=100
 # The alpha value in the APE smearing
 APE_ALPHA=0.5
 
@@ -81,14 +81,15 @@ N_POLY=100
 
 # Measuremets: 1 = measure, 0 = no measure
 # Polyakov loops
-MEAS_PL=0
+MEAS_PL=1
 # Wilson loops and Creutz ratios
-MEAS_WL=0
+MEAS_WL=1
 # Pion Correlation function
 MEAS_PC=1
 # Vacuum trace
 MEAS_VT=0
 
+#./2p1D-Wilson-LX48-LY48-LZ3 5.0 1 1000 25 5 5000 0 40 1.0 5 0.5 1234 1 1 0.00 1000 1e-16 1e-8 100000 0 11 1.0 100 1 1 1 0
 
 command="./2p1D-Wilson-LX$LX-LY$LY-LZ$LZ $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_SKIP 
 	      $HMC_CHKPT $HMC_CHKPT_START $HMC_NSTEP $HMC_TAU $APE_ITER $APE_ALPHA 
@@ -98,4 +99,4 @@ command="./2p1D-Wilson-LX$LX-LY$LY-LZ$LZ $BETA $BETAZ $HMC_ITER $HMC_THERM $HMC_
 
 echo $command
 
-#$command
+$command

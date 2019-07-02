@@ -26,7 +26,7 @@ using namespace std;
 //   Creutz     exp[ -sigma L^2] exp[ -sigma(L-1)(L-1)]
 //   ratio:    ---------------------------------------  = exp[ -sigma]
 //              exp[ -sigma (L-1)L] exp[-sigma L(L-1)]
-void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p){
+void measWilsonLoops(const Complex gauge[LX][LY][2], int iter, param_t p){
     
   Complex w;
   int p1, p2, dx, dy, x, y;
@@ -173,7 +173,7 @@ void measWilsonLoops(Complex gauge[LX][LY][2], double plaq, int iter, param_t p)
 // if H = Hdag, Tr(H * Hdag) = Sum_{n,m} (H_{n,m}) * (H_{n,m})^*,
 // i.e., the sum of the modulus squared of each element
 
-void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
+void measPionCorrelation(const Complex gauge[LX][LY][2], int top, int iter, param_t p){
   
   //Up type fermion prop
   Complex propUp[LX][LY][2];
@@ -298,7 +298,7 @@ void measPionCorrelation(Complex gauge[LX][LY][2], int top, int iter, param_t p)
 
 }
 
-void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
+void measVacuumTrace(const Complex gauge[LX][LY][2], int top, int iter, param_t p) {
   
   //Up type fermion prop
   Complex propUp[LX][LY][2];
@@ -371,7 +371,7 @@ void measVacuumTrace(Complex gauge[LX][LY][2], int top, int iter, param_t p) {
   
 }
 
-double measTopCharge(Complex gauge[LX][LY][2], param_t p){
+double measTopCharge(const Complex gauge[LX][LY][2], param_t p){
   
   Complex w;
   double top = 0.0;  
@@ -389,7 +389,7 @@ double measTopCharge(Complex gauge[LX][LY][2], param_t p){
   return top/TWO_PI;
 }
 
-double measGaugeAction(Complex gauge[LX][LY][2], param_t p) {
+double measGaugeAction(const Complex gauge[LX][LY][2], param_t p) {
 
   double beta  = p.beta;
   double Hgauge = 0.0;
@@ -403,7 +403,7 @@ double measGaugeAction(Complex gauge[LX][LY][2], param_t p) {
   return Hgauge;
 }
 
-double measMomAction(double mom[LX][LY][2], param_t p) {
+double measMomAction(const double mom[LX][LY][2], param_t p) {
 
   double Hmom = 0.0;
   Complex plaq;
@@ -419,7 +419,7 @@ double measMomAction(double mom[LX][LY][2], param_t p) {
 }
 
 //Staggered fermion
-double measFermAction(Complex gauge[LX][LY][2], Complex phi[LX][LY],
+double measFermAction(const Complex gauge[LX][LY][2], const Complex phi[LX][LY],
 		      param_t p, bool postStep) {
   
   double Hferm = 0.0;
@@ -443,8 +443,8 @@ double measFermAction(Complex gauge[LX][LY][2], Complex phi[LX][LY],
 
 
 //Staggered Action
-double measAction(double mom[LX][LY][2], Complex gauge[LX][LY][2],
-		  Complex phi[LX][LY], param_t p, bool postStep) {
+double measAction(const double mom[LX][LY][2], const Complex gauge[LX][LY][2],
+		  const Complex phi[LX][LY], param_t p, bool postStep) {
   
   double H = 0.0;
   H += measMomAction(mom, p);
@@ -455,7 +455,7 @@ double measAction(double mom[LX][LY][2], Complex gauge[LX][LY][2],
 }
 
 //Wilson fermion
-double measFermAction(Complex gauge[LX][LY][2], Complex phi[LX][LY][2],
+double measFermAction(const Complex gauge[LX][LY][2], const Complex phi[LX][LY][2],
 		      param_t p, bool postStep) {
   
   double Hferm = 0.0;
@@ -480,8 +480,8 @@ double measFermAction(Complex gauge[LX][LY][2], Complex phi[LX][LY][2],
 }
 
 //Wilson Action
-double measAction(double mom[LX][LY][2], Complex gauge[LX][LY][2],
-		  Complex phi[LX][LY][2], param_t p, bool postStep) {
+double measAction(const double mom[LX][LY][2], const Complex gauge[LX][LY][2],
+		  const Complex phi[LX][LY][2], param_t p, bool postStep) {
   
   double H = 0.0;
   H += measMomAction(mom, p);
