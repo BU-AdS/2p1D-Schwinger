@@ -185,9 +185,9 @@ int main(int argc, char **argv) {
 
   // Measure top charge on mother ensemble
   for(int z=0; z<LZ; z++) {
-    //extractLatSlice(gauge, gauge2D, z);
-    //top = measTopCharge(gauge2D, p);
-    //top_old[z] = round(top);
+    extractLatSlice(gauge, gauge2D, z);
+    top = measTopCharge(gauge2D, p);
+    top_old[z] = round(top);
   }
 
   //Begin thermalised trajectories

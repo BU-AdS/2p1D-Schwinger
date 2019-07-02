@@ -5,7 +5,7 @@ CXXFLAGS = -O3 -g -std=c++11
 
 all: effMass
 
-jkEffMass: effMass.o
+effMass: effMass.o
 	${CXX} ${CXXFLAGS} -o effMass effMass.o
 
 effMass.o: effMass.cpp Makefile 
