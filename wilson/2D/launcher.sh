@@ -10,8 +10,8 @@ mkdir -p {gauge,data/{data,plaq,creutz,polyakov,rect,top,pion,vacuum}}
 
 # configure preamble
 #---------------------------------------------------------------
-LX=12
-LY=12
+LX=16
+LY=16
 # Construct the correct executable
 cp main_template.cpp main.cpp
 cp Makefile_template Makefile
@@ -27,9 +27,9 @@ make
 BETA=$1
 
 # The total number of HMC iterations to perform.
-HMC_ITER=100
+HMC_ITER=1000
 # The number of HMC iterations for thermalisation.
-HMC_THERM=50
+HMC_THERM=25
 # The number of HMC iterations to skip bewteen measurements.
 HMC_SKIP=5
 # Dump the gauge field every HMC_CHKPT iterations after thermalisation.
@@ -37,12 +37,12 @@ HMC_CHKPT=5000
 # If non-zero, read in the HMC_CHKPT_START gauge field. 
 HMC_CHKPT_START=0
 # HMC time steps in the integration 
-HMC_NSTEP=10
+HMC_NSTEP=40
 # HMC trajectory time
 HMC_TAU=1.0
 
 # Number of APE smearing hits to perform when measuring topology
-APE_ITER=1
+APE_ITER=5
 # The alpha value in the APE smearing
 APE_ALPHA=0.5
 

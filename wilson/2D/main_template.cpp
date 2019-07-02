@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
       //Physical observables
       //-------------------------------------------------------------      
       //Gauge observables
-      if(p.measPL || p.measWL) measWilsonLoops(gauge, plaq, iter, p);
+      if(p.measPL || p.measWL) measWilsonLoops(gauge, iter, p);
       
       //Pion Correlation
       if(p.measPC) measPionCorrelation(gauge, top_old, iter, p);

@@ -229,6 +229,10 @@ int main(int argc, char **argv) {
     //---------------------------------------------------------------------
     if( (iter+1)%p.skip == 0) {
       
+      // Make a gauge copy
+      //Complex gaugeAlt[LX][LY][LZ][D];
+      //copyLat(gaugeAlt, gauge);        
+
       count++; //Number of measurements taken
 
       //Checkpoint the gauge field?
@@ -294,7 +298,7 @@ int main(int argc, char **argv) {
       extractLatSlice(gauge, gauge2D, cz);
       
       //Gauge observables
-      if(p.measPL || p.measWL) measWilsonLoops(gauge2D, plaq[cz], iter, p);
+      if(p.measPL || p.measWL) measWilsonLoops(gauge2D, iter, p);
             
       //Pion Correlation
       if(p.measPC) measPionCorrelation(gauge2D, top_old[cz], iter, p);
@@ -302,6 +306,9 @@ int main(int argc, char **argv) {
       //Vacuum Trace
       if(p.measVT) measVacuumTrace(gauge2D, top_old[cz], iter, p);
       //-------------------------------------------------------------
+
+      //checkGauge(gauge, gaugeAlt, 0);
+      
     }
   }   
   return 0;

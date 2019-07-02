@@ -21,7 +21,7 @@ template<typename T> inline void zeroField(T psi[LX][LY][2]) {
 }
 
 // Copy fermion field
-template<typename T> inline void copyField(T psi2[LX][LY][2],T psi1[LX][LY][2]) {
+template<typename T> inline void copyField(T psi2[LX][LY][2], const T psi1[LX][LY][2]) {
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int s=0; s<2; s++)
@@ -29,7 +29,7 @@ template<typename T> inline void copyField(T psi2[LX][LY][2],T psi1[LX][LY][2]) 
 }
 
 // Inner product
-template<typename T> inline T dotField(T psi1[LX][LY][2], T psi2[LX][LY][2]) {
+template<typename T> inline T dotField(const T psi1[LX][LY][2], const T psi2[LX][LY][2]) {
   T scalar = (T) 0.0;
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -39,7 +39,7 @@ template<typename T> inline T dotField(T psi1[LX][LY][2], T psi2[LX][LY][2]) {
 }
 
 // Norm squared 
-template<typename T> inline double norm2(T psi[LX][LY][2]) {  
+template<typename T> inline double norm2(const T psi[LX][LY][2]) {  
   double norm2 = 0.0;
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -50,8 +50,8 @@ template<typename T> inline double norm2(T psi[LX][LY][2]) {
 }
 
 
-template<typename T> inline void caxpby(T a, T X[LX][LY][2],
-					T b, T Y[LX][LY][2],
+template<typename T> inline void caxpby(const T a, const T X[LX][LY][2],
+					const T b, const T Y[LX][LY][2],
 					T result[LX][LY][2]){  
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -59,9 +59,9 @@ template<typename T> inline void caxpby(T a, T X[LX][LY][2],
 	result[x][y][s] = a*X[x][y][s] + b*Y[x][y][s];
 }
 
-template<typename T> inline void axpby(double a, T X[LX][LY][2],
-				       double b, T Y[LX][LY][2],
-				            T result[LX][LY][2]){
+template<typename T> inline void axpby(const double a, const T X[LX][LY][2],
+				       const double b, const T Y[LX][LY][2],
+				       T result[LX][LY][2]){
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int s=0; s<2; s++)
@@ -69,7 +69,7 @@ template<typename T> inline void axpby(double a, T X[LX][LY][2],
 }
 
 //caxpy in place 
-template<typename T> inline void caxpy(T a, T X[LX][LY][2], T Y[LX][LY][2]){
+template<typename T> inline void caxpy(const T a, const T X[LX][LY][2], T Y[LX][LY][2]){
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int s=0; s<2; s++)
@@ -77,7 +77,8 @@ template<typename T> inline void caxpy(T a, T X[LX][LY][2], T Y[LX][LY][2]){
 }
 
 //caxpy in result
-template<typename T> inline void caxpy(T a, T X[LX][LY][2], T Y[LX][LY][2],
+template<typename T> inline void caxpy(const T a, const T X[LX][LY][2], 
+				       const T Y[LX][LY][2],
 				       T result[LX][LY][2]){  
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -86,7 +87,7 @@ template<typename T> inline void caxpy(T a, T X[LX][LY][2], T Y[LX][LY][2],
 }
 
 //axpy in place 
-template<typename T> inline void axpy(double a, T X[LX][LY][2], T Y[LX][LY][2]){
+template<typename T> inline void axpy(const double a, const T X[LX][LY][2], T Y[LX][LY][2]){
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int s=0; s<2; s++)
@@ -94,7 +95,8 @@ template<typename T> inline void axpy(double a, T X[LX][LY][2], T Y[LX][LY][2]){
 }
 
 //axpy in result
-template<typename T> inline void axpy(double a, T X[LX][LY][2], T Y[LX][LY][2],
+template<typename T> inline void axpy(const double a, const T X[LX][LY][2], 
+				      const T Y[LX][LY][2],
 				      T result[LX][LY][2]){  
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -102,9 +104,9 @@ template<typename T> inline void axpy(double a, T X[LX][LY][2], T Y[LX][LY][2],
 	result[x][y][s] = a*X[x][y][s] + Y[x][y][s];
 }
 
-template<typename T> inline void xpaypbz(T X[LX][LY][2],
-					 double a, T Y[LX][LY][2],
-					 double b, T Z[LX][LY][2]) {  
+template<typename T> inline void xpaypbz(const T X[LX][LY][2],
+					 const double a, const T Y[LX][LY][2],
+					 const double b, T Z[LX][LY][2]) {  
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int s=0; s<2; s++) {
@@ -113,14 +115,14 @@ template<typename T> inline void xpaypbz(T X[LX][LY][2],
       }
 }
 
-template<typename T> inline void ax(double a, T X[LX][LY][2]){ 
+template<typename T> inline void ax(const double a, T X[LX][LY][2]){ 
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       for(int s=0; s<2; s++)
 	X[x][y][s] *= a;
 }
 
-template<typename T> inline void printVector(T X[LX][LY][2]){
+template<typename T> inline void printVector(T const X[LX][LY][2]){
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       cout << "(" << x << "," << y << ") = " << X[x][y][0] << " " << X[x][y][1]<<endl; 
@@ -136,14 +138,14 @@ template<typename T> inline void zeroField(T psi[LX][LY]) {
 }
 
 // Copy fermion field
-template<typename T> inline void copyField(T psi2[LX][LY],T psi1[LX][LY]) {
+template<typename T> inline void copyField(T psi2[LX][LY], const T psi1[LX][LY]) {
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       psi2[x][y] = psi1[x][y];
 }
 
 // Inner product 
-template<typename T> inline T dotField(T psi1[LX][LY], T psi2[LX][LY]) {
+template<typename T> inline T dotField(const T psi1[LX][LY], const T psi2[LX][LY]) {
   T scalar = (T) 0.0;
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -152,7 +154,7 @@ template<typename T> inline T dotField(T psi1[LX][LY], T psi2[LX][LY]) {
 }
 
 // Norm squared 
-template<typename T> inline double norm2(T psi[LX][LY]) {
+template<typename T> inline double norm2(const T psi[LX][LY]) {
   
   double norm2 = 0.0;
   for(int x=0; x<LX; x++)
@@ -163,16 +165,17 @@ template<typename T> inline double norm2(T psi[LX][LY]) {
 }
 
 
-template<typename T> inline void caxpby(T a, T X[LX][LY],
-					T b, T Y[LX][LY],
+template<typename T> inline void caxpby(const T a, const T X[LX][LY],
+					const T b, const T Y[LX][LY],
 					T result[LX][LY]){  
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
       result[x][y] = a*X[x][y] + b*Y[x][y];
 }
 
-template<typename T> inline void axpby(double a, T X[LX][LY], double b,
-				       T Y[LX][LY], T result[LX][LY]){
+template<typename T> inline void axpby(const double a, const T X[LX][LY], 
+				       const double b,
+				       const T Y[LX][LY], T result[LX][LY]){
   
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -180,7 +183,8 @@ template<typename T> inline void axpby(double a, T X[LX][LY], double b,
 }
 
 //Staggered fermion axpy in place 
-template<typename T> inline void axpy(double a, T X[LX][LY], T Y[LX][LY]){ 
+template<typename T> inline void axpy(const double a, const T X[LX][LY], 
+				      T Y[LX][LY]){ 
   
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
@@ -188,7 +192,8 @@ template<typename T> inline void axpy(double a, T X[LX][LY], T Y[LX][LY]){
 }
 
 //Staggered fermion axpy in result
-template<typename T> inline void axpy(double a, T X[LX][LY], T Y[LX][LY],
+template<typename T> inline void axpy(const double a, const T X[LX][LY], 
+				      const T Y[LX][LY],
 				      T result[LX][LY]){ 
   
   for(int x=0; x<LX; x++)
@@ -196,9 +201,9 @@ template<typename T> inline void axpy(double a, T X[LX][LY], T Y[LX][LY],
       result[x][y] = a*X[x][y] + Y[x][y];
 }
 
-template<typename T> inline void xpaypbz(T X[LX][LY],
-					 double a, T Y[LX][LY],
-					 double b, T Z[LX][LY]) {
+template<typename T> inline void xpaypbz(const T X[LX][LY],
+					 const double a, const T Y[LX][LY],
+					 const double b, T Z[LX][LY]) {
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++) {
       Z[x][y] *= b;
@@ -206,7 +211,7 @@ template<typename T> inline void xpaypbz(T X[LX][LY],
     }
 }
 
-template<typename T> inline void ax(double a, T X[LX][LY]){
+template<typename T> inline void ax(const double a, T X[LX][LY]){
   
   for(int x=0; x<LX; x++)
     for(int y=0; y<LY; y++)
